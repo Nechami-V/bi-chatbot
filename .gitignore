@@ -1,0 +1,27 @@
+# קבצי קומפילציה של פייתון
+__pycache__/
+*.pyc
+*.pyo
+
+# סביבת פיתוח וירטואלית
+venv/
+Lib/
+Scripts/
+pyvenv.cfg
+
+# קבצי Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# מסד נתונים
+*.db
+*.sqlite
+
+# קבצי מערכת
+.DS_Store
+Thumbs.db
+
+# קבצים נוספים שלא נרצה לעלות
+.env
+# created by virtualenv automatically
+
