@@ -5,6 +5,7 @@ __pycache__/
 
 # סביבת פיתוח וירטואלית
 venv/
+data/
 Lib/
 Scripts/
 pyvenv.cfg
@@ -24,4 +25,6 @@ Thumbs.db
 # קבצים נוספים שלא נרצה לעלות
 .env
 # created by virtualenv automatically
+.idea
+
 
