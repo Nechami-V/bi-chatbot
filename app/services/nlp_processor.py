@@ -18,7 +18,6 @@ except ImportError:
 
 # Enums for better type safety
 class AggregationType(Enum):
-    PERCENTILE = "percentile"
     COUNT = "COUNT"
     SUM = "SUM"
     AVG = "AVG"
@@ -201,10 +200,7 @@ class QueryIntent:
         
         return " | ".join(parts)
 
-<<<<<<< Updated upstream:app/nlp_processor.py
-=======
 
->>>>>>> Stashed changes:app/services/nlp_processor.py
 class EntityRecognizer:
     """Handles recognition of entities in the text with advanced BI capabilities"""
     
@@ -490,8 +486,11 @@ class EntityRecognizer:
     
     def find_entity(self, text: str, threshold: float = 0.8) -> Optional[str]:
         """Find the main entity in the text with fuzzy matching"""
+        # Load dictionary cache first
+        self.dictionary._load_cache()
+        
         # First check for exact matches in canonical terms
-        for term in self.dictionary._by_canonical:
+        for term in self.dictionary._cache.keys():
             if term in text:
                 return term
         

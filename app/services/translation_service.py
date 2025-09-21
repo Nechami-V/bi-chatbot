@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
-from app.db.database import SessionLocal
+from app.database import SessionLocal
 from app.models.translation_dictionary import TranslationDictionaryModel
 
 
