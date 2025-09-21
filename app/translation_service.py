@@ -62,13 +62,13 @@ class TranslationDictionary:
                 canonical_term="שם",
                 table="customer",
                 field="name",
-                aliases=["שם מלא", "שם פרטי", "שם משפחה"]
+                aliases=["שם מלא", "שם פרטי", "שם משפחה", "שמות"]
             ),
             Mapping(
                 canonical_term="תאריך יצירה",
                 table="customer",
                 field="created_at",
-                aliases=["נרשם בתאריך", "תאריך רישום", "מועד הרשמה", "תאריך הצטרפות"]
+                aliases=["נרשם בתאריך", "תאריך רישום", "מועד הרשמה", "תאריך הצטרפות", "תאריך"]
             ),
             # Add more entities as needed
             Mapping(
