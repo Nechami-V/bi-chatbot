@@ -1,13 +1,9 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
 
-from app.database import init_db, get_db
-from app.translation_service import TranslationDictionary
-from app.nlp_processor import NLPProcessor
-from app.query_builder import QueryBuilder
-from sqlalchemy.orm import Session
+# Import from our new structure
+from app.db.database import init_db
+from app.api.v1.routes import router as api_v1_router
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -25,9 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize services
-dictionary = TranslationDictionary()
-nlp_processor = NLPProcessor(dictionary)
+# Routers will create service instances as needed
 
 # Initialize database on startup
 @app.on_event("startup")
@@ -35,93 +29,18 @@ async def startup_event():
     # This will create tables and add sample data
     init_db()
 
-# Request/Response models
-class QueryRequest(BaseModel):
-    question: str
+# Request/Response models are defined in app/schemas/query.py
 
-class QueryResponse(BaseModel):
-    question: str
-    answer: str
-    sql: Optional[str] = None
-    error: Optional[str] = None
-
-# API Endpoints
+# Root endpoint
 @app.get("/")
 def root():
     return {
         "message": "BI Chatbot API is running",
         "endpoints": [
-            {"path": "/ask", "method": "GET", "description": "Ask a question in natural language"},
-            {"path": "/ask", "method": "POST", "description": "Ask a question in natural language (with JSON body)"}
+            {"path": "/api/v1/ask", "method": "GET", "description": "Ask a question in natural language"},
+            {"path": "/api/v1/ask", "method": "POST", "description": "Ask a question in natural language (with JSON body)"}
         ]
     }
 
-@app.get("/ask")
-def ask_question(question: str, db: Session = Depends(get_db)) -> QueryResponse:
-    """Ask a question in natural language and get a response based on BI data"""
-    print("\n=== New Question ===")
-    print(f"Question: {question}")
-    try:
-        # Process the question
-        print("1. Processing question...")
-        try:
-            intent = nlp_processor.process_question(question)
-            print(f"   Intent: {intent}")
-        except Exception as e:
-            print(f"Error processing question: {str(e)}")
-            raise
-        
-        # Build and execute the query
-        print("2. Building query...")
-        try:
-            query_builder = QueryBuilder(dictionary, db)
-            query = query_builder.build_query(intent)
-            print(f"   Query: {query}")
-        except Exception as e:
-            print(f"Error building query: {str(e)}")
-            raise
-        
-        # Execute the query with the intent for better response formatting
-        print("3. Executing query...")
-        try:
-            result = query_builder.execute_query(query, intent=intent)
-            print(f"   Result: {result}")
-            
-            # If result is already a dictionary with the right format, use it
-            if isinstance(result, dict) and 'answer' in result:
-                return QueryResponse(
-                    question=question,
-                    answer=result.get('answer', 'No answer provided'),
-                    sql=result.get('sql'),
-                    error=result.get('error')
-                )
-            
-            # Otherwise, format as a simple response
-            return QueryResponse(
-                question=question,
-                answer=str(result) if result is not None else "No results found",
-                sql=str(query) if hasattr(query, 'compile') else None,
-                error=None
-            )
-        except Exception as e:
-            print(f"Error executing query: {str(e)}")
-            raise
-            
-        return QueryResponse(
-            question=question,
-            answer=result,
-            sql=str(query) if hasattr(query, 'compile') else None,
-            error=None
-        )
-        
-    except Exception as e:
-        return QueryResponse(
-            question=question,
-            answer=f"אירעה שגיאה בעיבוד השאלה: {str(e)}",
-            error=str(e)
-        )
-
-@app.post("/ask", response_model=QueryResponse)
-async def ask_question_post(request: QueryRequest, db: Session = Depends(get_db)) -> QueryResponse:
-    """Ask a question in natural language (POST version with JSON body)"""
-    return ask_question(request.question, db)
+# Include API v1 routes
+app.include_router(api_v1_router, prefix="/api/v1")
