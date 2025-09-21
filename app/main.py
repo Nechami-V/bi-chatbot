@@ -4,9 +4,9 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any
 
 from app.database import init_db, get_db
-from app.services.translation_service import TranslationDictionary
-from app.services.nlp_processor import NLPProcessor
-from app.services.query_builder import QueryBuilder
+from app.translation_service import TranslationDictionary
+from app.nlp_processor import NLPProcessor
+from app.query_builder import QueryBuilder
 from sqlalchemy.orm import Session
 
 # Initialize FastAPI app

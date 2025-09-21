@@ -39,6 +39,7 @@ class AggregationType(Enum):
     MEDIAN = "MEDIAN"
     STDDEV = "STDDEV"
     VARIANCE = "VARIANCE"
+    PERCENTILE = "PERCENTILE"
 
 class TimeGranularity(Enum):
     DAY = "day"
@@ -210,28 +211,6 @@ class QueryIntent:
             parts.append(f"LIMIT: {self.limit}")
         
         return " | ".join(parts)
-
-class QueryIntent:
-    def __init__(self):
-        self.aggregation = None      # e.g., "COUNT", "SUM", "AVG", "MIN", "MAX"
-        self.target_entity = None    # e.g., "לקוחות"
-        self.target_field = None     # Specific field for aggregation (e.g., "גיל" for average age)
-        self.filters = {}            # e.g., {"עיר": "מודיעין עילית", "תאריך": ">=2023-01-01"}
-        self.group_by = None         # e.g., "עיר"
-        self.order_by = None         # e.g., ("count", "DESC")
-        self.limit = None            # e.g., 10 for top 10 results
-        self.time_frame = None       # e.g., "last_30_days", "this_year"
-
-    def __repr__(self):
-        return (
-            f"<QueryIntent: {self.aggregation} "
-            f"{self.target_field or ''} {self.target_entity} "
-            f"WHERE {self.filters} "
-            f"GROUP BY {self.group_by} "
-            f"ORDER BY {self.order_by} "
-            f"LIMIT {self.limit}>"
-        )
-
 
 class EntityRecognizer:
     """Handles recognition of entities in the text with advanced BI capabilities"""
@@ -961,8 +940,17 @@ class IntentClassifier:
         }
         
         # Indicators for different query components
-        self.group_indicators = ["לפי", "על פי", "מחולק לפי", "מקובץ לפי", "מסודר לפי", "לפי קטגוריית"]
-        self.order_indicators = ["מיין לפי", "סדר לפי", "הצג לפי סדר", "מיין ב", "מסודר לפי"]
+        self.group_indicators = [
+            "לפי", "על פי", "מחולק לפי", "מקובץ לפי", "מסודר לפי", "לפי קטגוריית",
+            # Heuristics for common phrasing implying grouping
+            "בכל", "לכל"
+        ]
+        self.order_indicators = [
+            "מיין לפי", "סדר לפי", "הצג לפי סדר", "מיין ב", "מסודר לפי",
+            # Add explicit phrasing for alphabetical order
+            "לפי סדר", "לפי סדר אלפבתי", "סדר אלפבתי"
+        ]
+        
         self.limit_indicators = ["הראשונים", "העליונים", "התחתונים", "רק", "רק את", "לכל היותר"]
         self.filter_indicators = ["שבו", "שבה", "שבין", "שמתאימים ל", "שעונים על", "עם", "בין"]
         self.comparison_indicators = ["גדול מ", "קטן מ", "שווה ל", "שונה מ", "דומה ל", "בטווח", "בין"]
@@ -1266,7 +1254,28 @@ class NLPProcessor:
         query_type = self.intent_classifier.classify_query_type(question)
         intent.metadata["query_type"] = max(query_type.items(), key=lambda x: x[1])[0]
         
-        # 3. Extract aggregations
+        # 2b. Detect display-style queries (e.g., "הצג/הראה/תן/הדפס") and set fields to display
+        display_verbs = ["הצג", "הראה", "תן", "הדפס"]
+        display_mode_requested = any(v in question for v in display_verbs)
+        if display_mode_requested:
+            # Enter display mode regardless of whether explicit fields were mentioned
+            display_fields: List[str] = []
+            # If the user asks for names (singular/plural), prefer the 'שם' field
+            if any(term in question for term in ["שם", "שמות"]):
+                display_fields.append("שם")
+            # Tentatively set display mode (we may disable it below if explicit aggregation is present)
+            intent.metadata["display_fields"] = display_fields
+
+        # 2c. If explicit aggregation keywords are present together with display verbs,
+        # prefer aggregation (e.g., "הצג כמות לקוחות" -> COUNT, not list)
+        explicit_agg_terms: List[str] = []
+        for agg_type, data in self.intent_classifier.aggregation_terms.items():
+            explicit_agg_terms.extend(data["terms"])  # type: ignore
+        if display_mode_requested and any(term in question for term in explicit_agg_terms):
+            # Disable display mode to allow aggregation flow
+            intent.metadata.pop("display_fields", None)
+        
+        # 3. Extract aggregations (skip entirely if display mode is requested)
         self._extract_aggregations(intent, question, measures)
         
         # 4. Extract filters and conditions
@@ -1322,6 +1331,9 @@ class NLPProcessor:
     
     def _extract_aggregations(self, intent: QueryIntent, text: str, measures: List[str]) -> None:
         """Extract aggregation operations from the text"""
+        # If we're in display mode, skip aggregations entirely
+        if intent.metadata.get("display_fields") is not None:
+            return
         # Get aggregations with confidence scores
         aggregations = self.intent_classifier.classify_aggregation(text, self.context)
         
@@ -1373,26 +1385,52 @@ class NLPProcessor:
                 value=value
             ))
         
-        # Extract dates
-        dates = self.entity_recognizer.extract_dates(text)
-        if "date" in dates:
-            intent.filters.append(FilterCondition(
-                field="תאריך",
-                operator=ComparisonOperator.EQUALS,
-                value=dates["date"]
-            ))
-        elif "start_date" in dates and "end_date" in dates:
-            intent.filters.append(FilterCondition(
-                field="תאריך",
-                operator=ComparisonOperator.BETWEEN,
-                value=(dates["start_date"], dates["end_date"])
-            ))
+        # Detect explicit date range pattern: 'בין YYYY-MM-DD ל-YYYY-MM-DD'
+        added_date_range = False
+        range_match = re.search(r"בין\s+(\d{4}-\d{2}-\d{2})\s+ל[\s-](\d{4}-\d{2}-\d{2})", text)
+        if range_match:
+            try:
+                start_d = range_match.group(1)
+                end_d = range_match.group(2)
+                intent.filters.append(FilterCondition(
+                    field="תאריך",
+                    operator=ComparisonOperator.BETWEEN,
+                    value=(start_d, end_d)
+                ))
+                added_date_range = True
+                # Mark that this question has an explicit date filter
+                intent.metadata["has_explicit_date"] = True
+            except (IndexError, ValueError):
+                pass
+
+        # Extract dates (skip if explicit range was already added)
+        if not added_date_range:
+            dates = self.entity_recognizer.extract_dates(text)
+            if "date" in dates:
+                intent.filters.append(FilterCondition(
+                    field="תאריך",
+                    operator=ComparisonOperator.EQUALS,
+                    value=dates["date"]
+                ))
+                intent.metadata["has_explicit_date"] = True
+            elif "start_date" in dates and "end_date" in dates:
+                intent.filters.append(FilterCondition(
+                    field="תאריך",
+                    operator=ComparisonOperator.BETWEEN,
+                    value=(dates["start_date"], dates["end_date"])
+                ))
+                intent.metadata["has_explicit_date"] = True
         
         # Extract comparisons
         comparisons = self.entity_recognizer.extract_comparisons(text)
         for field, comp in comparisons.items():
+            # Skip comparisons that mistakenly target the entity itself (e.g., 'לקוחות')
+            skip_fields = {"לקוחות", "לקוח"}
+            target_field = field or comp.get("field", "value")
+            if target_field in skip_fields:
+                continue
             intent.filters.append(FilterCondition(
-                field=field or comp.get("field", "value"),
+                field=target_field,
                 operator=ComparisonOperator(comp["operator"]),
                 value=comp["value"]
             ))
@@ -1406,7 +1444,10 @@ class NLPProcessor:
             intent.time_dimension = time_dim
             
             # If we have a time dimension but no date filters, add a default time frame
-            if not any(f.field == "תאריך" for f in intent.filters):
+            # Skip adding defaults when in display mode or when ordering by date
+            has_display = intent.metadata.get("display_fields") is not None
+            ordering_on_date = any(ob[0] == "תאריך" for ob in intent.order_by) if intent.order_by else False
+            if not any(f.field == "תאריך" for f in intent.filters) and not has_display and not ordering_on_date:
                 # Default to last 30 days
                 start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
                 intent.filters.append(FilterCondition(
@@ -1444,6 +1485,40 @@ class NLPProcessor:
             first_agg = intent.aggregations[0]
             agg_field = first_agg.alias or f"{first_agg.operation.value.lower()}_{first_agg.field}"
             intent.order_by.append((agg_field, SortOrder.DESC))
+
+        # Fallbacks: alphabetical order by city when phrasing implies it
+        if not intent.order_by:
+            text_no_space = text.replace(" ", "")
+            alphabetical_cues = ["סדר אלפבתי", "לפי סדר אלפבתי", "אלפבתי"]
+            if any(cue in text for cue in alphabetical_cues):
+                # Prefer city if mentioned (singular/plural)
+                if ("עיר" in text) or ("ערים" in text) or ("של ערים" in text):
+                    intent.order_by.append(("עיר", SortOrder.ASC))
+            # Generic 'לפי סדר' alongside a field mention
+            if not intent.order_by and ("לפי סדר" in text or "מסודר לפי" in text):
+                if ("עיר" in text) or ("ערים" in text):
+                    intent.order_by.append(("עיר", SortOrder.ASC))
+
+        # New: In display mode with no aggregations, interpret 'לפי <field>' as ORDER BY
+        if not intent.order_by and not intent.aggregations and intent.metadata.get("display_fields") is not None:
+            if "לפי" in text:
+                # Look at the text after 'לפי' and pick the first known field token
+                after = text.split("לפי", 1)[1]
+                # Determine direction cue
+                desc_cues = ["יורד", "גדול לקטן", "ת-א", "חדש לישן", "החדשים"]
+                asc_cues = ["עולה", "קטן לגדול", "א-ת", "ישן לחדש", "הישנים"]
+                direction = SortOrder.DESC if any(cue in after for cue in desc_cues) else (
+                    SortOrder.ASC if any(cue in after for cue in asc_cues) else SortOrder.ASC
+                )
+                # Map plurals/synonyms to canonical
+                if "ערים" in after or "עיר" in after:
+                    intent.order_by.append(("עיר", direction))
+                elif "שמות" in after or "שם" in after:
+                    intent.order_by.append(("שם", direction))
+                elif any(term in after for term in ["תאריך", "תאריך יצירה", "תאריך כניסה", "כניסה למערכת"]):
+                    # Default to DESC for dates (newest first) unless ASC cues present
+                    date_dir = SortOrder.DESC if direction != SortOrder.ASC else SortOrder.ASC
+                    intent.order_by.append(("תאריך", date_dir))
     
     def _extract_limits(self, intent: QueryIntent, text: str) -> None:
         """Extract result limits from the text"""
@@ -1462,7 +1537,10 @@ class NLPProcessor:
             return
         
         # Example: Carry over time frame if not specified in current query
-        if "time_frame" in self.context and not any(f.field == "תאריך" for f in intent.filters):
+        has_display = intent.metadata.get("display_fields") is not None
+        has_explicit_date = bool(intent.metadata.get("has_explicit_date"))
+        ordering_on_date = any(ob[0] == "תאריך" for ob in intent.order_by) if intent.order_by else False
+        if "time_frame" in self.context and not any(f.field == "תאריך" for f in intent.filters) and not has_display and not has_explicit_date and not ordering_on_date:
             time_frame = self.context["time_frame"]
             if isinstance(time_frame, dict) and "start" in time_frame and "end" in time_frame:
                 intent.filters.append(FilterCondition(
@@ -1494,8 +1572,8 @@ class NLPProcessor:
         if not intent.entities:
             intent.entities = ["לקוחות"]  # Default to customers
         
-        # Ensure we have at least one aggregation
-        if not intent.aggregations:
+        # Ensure we have at least one aggregation unless this is a display query
+        if not intent.aggregations and not intent.metadata.get("display_fields"):
             intent.aggregations.append(Aggregation(
                 field="*",
                 operation=AggregationType.COUNT
