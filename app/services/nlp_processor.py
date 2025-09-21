@@ -1,32 +1,20 @@
-from typing import Dict, List, Optional, Tuple, Set, Any, Union
+from typing import Dict, List, Optional, Tuple, Any, Union
 import re
-import json
 import logging
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
-from enum import Enum, auto
-from collections import defaultdict
-import numpy as np
+from enum import Enum
 from rapidfuzz import fuzz
-from dateutil.relativedelta import relativedelta
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Import with error handling
+# Import dictionary from services to avoid duplication
 try:
-    from .translation_service import TranslationDictionary, TermNotFoundError
+    from app import TranslationDictionary, TermNotFoundError
 except ImportError:
-    logger.warning("TranslationDictionary not found, using fallback")
-    
-    class TermNotFoundError(Exception):
-        pass
-        
-    class TranslationDictionary:
-        def __init__(self):
-            self._by_canonical = {}
-            self._alias_index = {}
+    logger.warning("Failed to import TranslationDictionary from services")
 
 # Enums for better type safety
 class AggregationType(Enum):
@@ -211,6 +199,7 @@ class QueryIntent:
             parts.append(f"LIMIT: {self.limit}")
         
         return " | ".join(parts)
+
 
 class EntityRecognizer:
     """Handles recognition of entities in the text with advanced BI capabilities"""
@@ -497,8 +486,11 @@ class EntityRecognizer:
     
     def find_entity(self, text: str, threshold: float = 0.8) -> Optional[str]:
         """Find the main entity in the text with fuzzy matching"""
+        # Load dictionary cache first
+        self.dictionary._load_cache()
+        
         # First check for exact matches in canonical terms
-        for term in self.dictionary._by_canonical:
+        for term in self.dictionary._cache.keys():
             if term in text:
                 return term
         
