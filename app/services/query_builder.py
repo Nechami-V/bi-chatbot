@@ -76,6 +76,21 @@ class QueryBuilder:
                 agg_func = func.count
 
             select_columns = [agg_func(target_column).label('result')]
+            
+            # Add GROUP BY columns to SELECT if they exist
+            group_by_columns = []
+            if hasattr(intent, 'group_by') and getattr(intent, 'group_by'):
+                group_by_items = intent.group_by if isinstance(intent.group_by, list) else [intent.group_by]
+                for gb in group_by_items:
+                    try:
+                        group_mapping = self.dictionary.resolve(gb)
+                        if group_mapping.table == entity_mapping.table:
+                            group_column = getattr(model, group_mapping.field)
+                            select_columns.append(group_column)
+                            group_by_columns.append(group_column)
+                    except TermNotFoundError:
+                        pass
+            
             query = select(*select_columns)
 
             # Build filters
@@ -131,18 +146,9 @@ class QueryBuilder:
             if filters_sql:
                 query = query.where(and_(*filters_sql))
 
-            # GROUP BY
-            group_by_items = []
-            if hasattr(intent, 'group_by') and getattr(intent, 'group_by'):
-                group_by_items = intent.group_by if isinstance(intent.group_by, list) else [intent.group_by]
-            for gb in group_by_items:
-                try:
-                    group_mapping = self.dictionary.resolve(gb)
-                    if group_mapping.table == entity_mapping.table:
-                        group_column = getattr(model, group_mapping.field)
-                        query = query.group_by(group_column)
-                except TermNotFoundError:
-                    pass
+            # GROUP BY (use columns we already calculated)
+            for group_column in group_by_columns:
+                query = query.group_by(group_column)
 
             # ORDER BY
             orders = getattr(intent, 'order_by', None)
