@@ -1459,9 +1459,12 @@ class NLPProcessor:
                 intent.group_by.append(group["field"])
         
         # If we have aggregations but no explicit grouping, and we have dimensions,
-        # consider adding them as groups
+        # consider adding them as groups ONLY if the question explicitly asks for breakdown
         if intent.aggregations and not intent.group_by and dimensions:
-            intent.group_by.extend(dimensions[:2])  # Add up to 2 dimensions as groups
+            # Only add GROUP BY if the text suggests we want breakdown by categories
+            breakdown_keywords = ["כל", "לכל", "בכל", "ברחבי", "לפי", "עבור כל"]
+            if any(keyword in text for keyword in breakdown_keywords):
+                intent.group_by.extend(dimensions[:2])  # Add up to 2 dimensions as groups
     
     def _extract_ordering(self, intent: QueryIntent, text: str, fields: List[str]) -> None:
         """Extract ordering information from the text"""
