@@ -4,8 +4,8 @@ from app.db.database import Base
 
 class TranslationDictionaryModel(Base):
     """
-    טבלת מילון התרגום כפי שמוגדר באיפיון:
-    מיפוי בין מונחים עסקיים למונחי מסד נתונים
+The translation dictionary table as defined in the specification:
+Mapping between business terms and database terms
     """
     __tablename__ = "translation_dictionary"
 
