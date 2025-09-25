@@ -42,7 +42,7 @@ The system uses advanced AI models to understand questions, generate SQL queries
 
 1. **Clone the project**
    ```bash
-   git clone [repository-url]
+   git clone https://github.com/Nechami-V/bi-chatbot
    cd bi-chatbot
    ```
 
