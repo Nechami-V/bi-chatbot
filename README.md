@@ -1,18 +1,101 @@
-# BI Chatbot
+# BI Chatbot with Advanced AI Capabilities
 
-An intelligent chatbot that allows end-users to query Business Intelligence (BI) data in natural language.  
-The system converts user questions into SQL queries, executes them against a database, and returns the results either as text or as visualizations (tables, charts, etc.).
+A smart chatbot that allows users to ask questions in natural language and receive answers from BI data.  
+The system uses advanced AI models to understand questions, generate SQL queries, and analyze results.
 
-## Features
-- Natural Language Processing (NLP) to parse user questions
-- Translation dictionary mapping business terms to database schema
+---
+
+## 🚀 Main Features
+
+### 🤖 Advanced AI Capabilities
+- Understands questions in natural Hebrew
 - Automatic SQL query generation
-- Database connector supporting multiple DB engines
-- Result processing (raw + processed output)
-- Visualization support (text, table, chart)
+- Intelligent results analysis
+- Generates clear and natural answers
+- Advanced user intent recognition
 
-## Tech Stack
-- Backend: Python (FastAPI / Flask planned)
-- Database: SQLite (initial), extendable to MySQL/PostgreSQL
-- ORM: SQLAlchemy
-- Visualization: matplotlib / plotly (planned)
+### 📊 Data Analysis
+- Supports a wide range of queries
+- Automatic detection of tables and fields
+- Automatic database schema analysis
+- Identifies relationships between tables
+
+### 📈 Visualization
+- Automatic suggestions for suitable charts
+- Organized table display
+- Line, bar, and scatter charts
+- Data-type–adaptive visualizations
+
+---
+
+## 🛠️ Technologies
+
+| Area        | Technology |
+|-------------|------------|
+| **Backend** | Python 3.8+, FastAPI, SQLAlchemy (ORM), OpenAI API |
+| **Database** | SQLite (default), MySQL, PostgreSQL |
+| **Visualization** | Plotly, Matplotlib |
+
+---
+
+## ⚡ Quick Installation
+
+1. **Clone the project**
+   ```bash
+   git clone [repository-url]
+   cd bi-chatbot
+   ```
+
+2. **Create a virtual environment and install dependencies**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+3. **Set environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit the .env file and add your OpenAI API key
+   ```
+
+4. **Initialize the database**
+   ```bash
+   python -m app.db.init_db
+   ```
+
+5. **Run the development server**
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+
+---
+
+## 🧪 Running Tests
+
+Run all tests:
+```bash
+pytest
+```
+
+Test the system with sample data:
+```bash
+python test_smart_ai.py
+```
+
+---
+
+## 📚 Example Queries
+
+- "Show me all customers"
+- "What is the monthly revenue?"
+- "Who is the customer with the highest sales?"
+- "Display sales by month"
+- "What is the most popular product?"
+- "Compare sales across quarters"
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License**.
