@@ -17,9 +17,6 @@ from app.services.query_builder import QueryBuilder
 # Schema imports
 from app.schemas.query import QueryRequest, QueryResponse
 
-# API imports
-from app.api.v1.routes import router
-
 __all__ = [
     # Database
     "Base", "engine", "SessionLocal", "init_db", "get_db",
@@ -33,8 +30,5 @@ __all__ = [
     "QueryBuilder",
     
     # Schemas
-    "QueryRequest", "QueryResponse",
-    
-    # API
-    "router"
+    "QueryRequest", "QueryResponse"
 ]

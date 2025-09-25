@@ -45,26 +45,26 @@ def seed_translation_dictionary(db):
     from app.models.translation_dictionary import TranslationDictionaryModel
     
     mappings = [
-        # לקוחות
+        # Customers
         {"client_id": 1, "user_term": "לקוחות", "db_table": "ClientsBot2025", "db_field": "ID_לקוח", "default_agg": "COUNT"},
         {"client_id": 1, "user_term": "לקוחות חדשים", "db_table": "ClientsBot2025", "db_field": "ID_לקוח", "default_agg": "COUNT"},
         {"client_id": 1, "user_term": "מספר לקוחות", "db_table": "ClientsBot2025", "db_field": "ID_לקוח", "default_agg": "COUNT"},
         
-        # עיר
+        # City
         {"client_id": 1, "user_term": "עיר", "db_table": "ClientsBot2025", "db_field": "city", "default_agg": None},
         {"client_id": 1, "user_term": "ערים", "db_table": "ClientsBot2025", "db_field": "city", "default_agg": None},
         {"client_id": 1, "user_term": "יישוב", "db_table": "ClientsBot2025", "db_field": "city", "default_agg": None},
         
-        # שמות
+        # Names
         {"client_id": 1, "user_term": "שם פרטי", "db_table": "ClientsBot2025", "db_field": "fname", "default_agg": None},
         {"client_id": 1, "user_term": "שם משפחה", "db_table": "ClientsBot2025", "db_field": "lname", "default_agg": None},
         
-        # פריטים
+        # Items
         {"client_id": 1, "user_term": "פריטים", "db_table": "ItemsBot2025", "db_field": "ID_פריט", "default_agg": "COUNT"},
         {"client_id": 1, "user_term": "מוצרים", "db_table": "ItemsBot2025", "db_field": "ID_פריט", "default_agg": "COUNT"},
         {"client_id": 1, "user_term": "שם פריט", "db_table": "ItemsBot2025", "db_field": "name", "default_agg": None},
         
-        # הזמנות
+        # Orders/Sales
         {"client_id": 1, "user_term": "הזמנות", "db_table": "OrdersBot2025", "db_field": "ID_מכירה", "default_agg": "COUNT"},
         {"client_id": 1, "user_term": "מכירות", "db_table": "OrdersBot2025", "db_field": "ID_מכירה", "default_agg": "COUNT"},
         {"client_id": 1, "user_term": "סכום", "db_table": "OrdersBot2025", "db_field": "סכום", "default_agg": "SUM"},
@@ -76,23 +76,23 @@ def seed_translation_dictionary(db):
 
 
 def seed_sample_customers(db):
-            from datetime import datetime
-            sample_customers = [
-                {"name": "שרה כהן", "city": "מודיעין עילית", "created_at": "2024-05-01"},
-                {"name": "דוד לוי", "city": "ירושלים", "created_at": "2024-06-10"},
-                {"name": "רבקה פרידמן", "city": "מודיעין עילית", "created_at": "2024-07-15"},
-                {"name": "אברהם יצחק", "city": "בני ברק", "created_at": "2024-07-20"},
-                {"name": "משה כץ", "city": "מודיעין עילית", "created_at": "2024-08-01"},
-            ]
-            for customer in sample_customers:
-                db.add(Customer(
-                    name=customer["name"],
-                    city=customer["city"],
-                    created_at=datetime.strptime(customer["created_at"], "%Y-%m-%d").date(),
-                ))
-            db.commit()
-    finally:
-        db.close()
+    from datetime import datetime
+    from app.models.customer import Customer
+
+    sample_customers = [
+        {"name": "שרה כהן", "city": "מודיעין עילית", "created_at": "2024-05-01"},
+        {"name": "דוד לוי", "city": "ירושלים", "created_at": "2024-06-10"},
+        {"name": "רבקה פרידמן", "city": "מודיעין עילית", "created_at": "2024-07-15"},
+        {"name": "אברהם יצחק", "city": "בני ברק", "created_at": "2024-07-20"},
+        {"name": "משה כץ", "city": "מודיעין עילית", "created_at": "2024-08-01"},
+    ]
+    for customer in sample_customers:
+        db.add(Customer(
+            name=customer["name"],
+            city=customer["city"],
+            created_at=datetime.strptime(customer["created_at"], "%Y-%m-%d").date(),
+        ))
+    db.commit()
 
 
 def get_db():

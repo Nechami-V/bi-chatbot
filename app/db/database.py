@@ -45,26 +45,26 @@ def seed_translation_dictionary(db):
     from app.models.translation_dictionary import TranslationDictionaryModel
     
     mappings = [
-        # לקוחות
+        # Customers
         {"client_id": 1, "user_term": "לקוחות", "db_table": "ClientsBot2025", "db_field": "ID_לקוח", "default_agg": "COUNT"},
         {"client_id": 1, "user_term": "לקוחות חדשים", "db_table": "ClientsBot2025", "db_field": "ID_לקוח", "default_agg": "COUNT"},
         {"client_id": 1, "user_term": "מספר לקוחות", "db_table": "ClientsBot2025", "db_field": "ID_לקוח", "default_agg": "COUNT"},
         
-        # עיר
+        # City
         {"client_id": 1, "user_term": "עיר", "db_table": "ClientsBot2025", "db_field": "city", "default_agg": None},
         {"client_id": 1, "user_term": "ערים", "db_table": "ClientsBot2025", "db_field": "city", "default_agg": None},
         {"client_id": 1, "user_term": "יישוב", "db_table": "ClientsBot2025", "db_field": "city", "default_agg": None},
         
-        # שמות
+        # Names
         {"client_id": 1, "user_term": "שם פרטי", "db_table": "ClientsBot2025", "db_field": "fname", "default_agg": None},
         {"client_id": 1, "user_term": "שם משפחה", "db_table": "ClientsBot2025", "db_field": "lname", "default_agg": None},
         
-        # פריטים
+        # Items
         {"client_id": 1, "user_term": "פריטים", "db_table": "ItemsBot2025", "db_field": "ID_פריט", "default_agg": "COUNT"},
         {"client_id": 1, "user_term": "מוצרים", "db_table": "ItemsBot2025", "db_field": "ID_פריט", "default_agg": "COUNT"},
         {"client_id": 1, "user_term": "שם פריט", "db_table": "ItemsBot2025", "db_field": "name", "default_agg": None},
         
-        # הזמנות
+        # orders/sales
         {"client_id": 1, "user_term": "הזמנות", "db_table": "OrdersBot2025", "db_field": "ID_מכירה", "default_agg": "COUNT"},
         {"client_id": 1, "user_term": "מכירות", "db_table": "OrdersBot2025", "db_field": "ID_מכירה", "default_agg": "COUNT"},
         {"client_id": 1, "user_term": "סכום", "db_table": "OrdersBot2025", "db_field": "סכום", "default_agg": "SUM"},

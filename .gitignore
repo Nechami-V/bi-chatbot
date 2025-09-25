@@ -1,28 +1,28 @@
-# קבצי קומפילציה של פייתון
+# Python compilation files
 __pycache__/
 *.pyc
 *.pyo
 
-# סביבת פיתוח וירטואלית
+# Virtual environment
 venv/
 data/
 Lib/
 Scripts/
 pyvenv.cfg
 
-# קבצי Jupyter
+# Jupyter files
 .ipynb_checkpoints/
 *.ipynb
 
-# מסד נתונים
+# Database files
 *.db
 *.sqlite
 
-# קבצי מערכת
+# System files
 .DS_Store
 Thumbs.db
 
-# קבצים נוספים שלא נרצה לעלות
+# Additional files not to upload
 .env
 # created by virtualenv automatically
 .idea
