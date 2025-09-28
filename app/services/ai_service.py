@@ -1,9 +1,9 @@
-import openai
+from openai import OpenAI
 from typing import Dict, List, Optional, Any
 import json
 from sqlalchemy.orm import Session
-from sqlalchemy import inspect
-from ..config import config
+from sqlalchemy import inspect, text
+from ..simple_config import config
 
 class AIService:
     """Service for handling AI-related operations including natural language understanding and SQL generation."""
@@ -13,9 +13,9 @@ class AIService:
         self.db = db
         self.schema_info = self._analyze_database_schema()
         
-        # Configure OpenAI
-        openai.api_key = config.OPENAI_API_KEY
-        if not openai.api_key:
+        # Configure OpenAI client
+        self.client = OpenAI(api_key=config.OPENAI_API_KEY)
+        if not config.OPENAI_API_KEY:
             raise ValueError("OpenAI API key is not configured. Please set the OPENAI_API_KEY environment variable.")
     
     def _analyze_database_schema(self) -> Dict[str, Any]:
@@ -77,27 +77,23 @@ class AIService:
         
         # Create the prompt for the AI
         prompt = f"""
-        נתון סכמת מסד הנתונים הבאה:
+        Database schema:
         {schema_info}
         
-        על סמך הסכמה הנ"ל, צור שאילתת SQL שמענה על השאלה: "{question}"
+        Question: "{question}"
         
-        החזר את השאילתה בפורמט JSON עם השדות הבאים:
-        - sql: השאילתה ב-SQL
-        - tables: רשימת הטבלאות המעורבות
-        - description: הסבר קצר על השאילתה
+        Generate a SQL query to answer this question. Follow the system instructions exactly.
         """.strip()
         
         try:
             # Call the OpenAI API
-            response = openai.ChatCompletion.create(
+            response = self.client.chat.completions.create(
                 model=config.OPENAI_MODEL,
                 messages=[
                     {"role": "system", "content": config.SYSTEM_PROMPT},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=config.TEMPERATURE,
-                max_tokens=config.MAX_TOKENS
+                max_completion_tokens=config.MAX_TOKENS
             )
             
             # Extract the generated SQL from the response
@@ -135,7 +131,7 @@ class AIService:
     def execute_query(self, sql: str) -> Dict[str, Any]:
         """Execute a SQL query and return the results."""
         try:
-            result = self.db.execute(sql)
+            result = self.db.execute(text(sql))
             
             # If it's a SELECT query, fetch the results
             if sql.strip().lower().startswith('select'):
@@ -184,14 +180,13 @@ class AIService:
             """.strip()
             
             # Call the OpenAI API
-            response = openai.ChatCompletion.create(
+            response = self.client.chat.completions.create(
                 model=config.OPENAI_MODEL,
                 messages=[
                     {"role": "system", "content": config.SYSTEM_PROMPT},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=config.TEMPERATURE,
-                max_tokens=config.MAX_TOKENS
+                max_completion_tokens=config.MAX_TOKENS
             )
             
             return response.choices[0].message.content.strip()
