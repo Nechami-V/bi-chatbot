@@ -21,6 +21,9 @@ class Config:
     # Database Settings  
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./bi_chatbot.db")
     
+    # Business Tables - tables to analyze for AI schema understanding
+    BUSINESS_TABLES = ["ClientsBot2025", "OrdersBot2025", "ItemsBot2025", "SalesBot2025"]
+    
     # System prompt for AI
     SYSTEM_PROMPT = """
 You are an expert SQL assistant for a Hebrew Business Intelligence system.

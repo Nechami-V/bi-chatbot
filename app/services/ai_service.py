@@ -15,12 +15,16 @@ Author: BI Chatbot Team
 Version: 2.0.0
 """
 
+import logging
 from openai import OpenAI
 from typing import Dict, List, Optional, Any
 import json
 from sqlalchemy.orm import Session
 from sqlalchemy import inspect, text
-from ..simple_config import config
+from app.simple_config import config
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 class AIService:
@@ -55,7 +59,7 @@ class AIService:
             raise ValueError("OpenAI API key is not configured. Please set the OPENAI_API_KEY environment variable.")
         
         self.client = OpenAI(api_key=config.OPENAI_API_KEY)
-        print("✅ AI Service initialized successfully")
+        logger.info("AI Service initialized successfully")
     
     def _analyze_database_schema(self) -> Dict[str, Any]:
         """
@@ -70,7 +74,7 @@ class AIService:
                 - tables: Dict of table names with column info
                 - relationships: List of foreign key relationships
         """
-        print("🔍 Analyzing database schema...")
+        logger.info("Analyzing database schema...")
         
         inspector = inspect(self.db.get_bind())
         schema = {
@@ -79,12 +83,12 @@ class AIService:
         }
         
         # Focus on business data tables (exclude system/temp tables)
-        relevant_tables = ['ClientsBot2025', 'OrdersBot2025', 'ItemsBot2025', 'SalesBot2025']
+        relevant_tables = config.BUSINESS_TABLES
         
         for table_name in relevant_tables:
             # Verify table exists in database
             if table_name not in inspector.get_table_names():
-                print(f"   ⚠️  Table {table_name} not found in database")
+                logger.warning(f"Table {table_name} not found in database")
                 continue
                 
             # Extract column information for AI understanding
@@ -130,11 +134,25 @@ class AIService:
     
     def generate_sql(self, question: str) -> Dict[str, Any]:
         """Generate SQL from a natural language question using OpenAI."""
-        # Prepare the schema information for the prompt
+        try:
+            prompt = self._build_sql_prompt(question)
+            response = self._call_openai_for_sql(prompt)
+            return self._parse_sql_response(response)
+        except Exception as e:
+            logger.error(f"Error generating SQL: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'sql': '',
+                'tables': [],
+                'description': ''
+            }
+    
+    def _build_sql_prompt(self, question: str) -> str:
+        """Build the prompt for OpenAI SQL generation."""
         schema_info = json.dumps(self.schema_info, indent=2, ensure_ascii=False)
         
-        # Create the prompt for the AI
-        prompt = f"""
+        return f"""
 Based on this database schema:
 {schema_info}
 
@@ -164,63 +182,53 @@ Respond with valid JSON only:
   "description": "תיאור בעברית"
 }}
         """.strip()
-        
+    
+    def _call_openai_for_sql(self, prompt: str) -> str:
+        """Call OpenAI API for SQL generation."""
+        response = self.client.chat.completions.create(
+            model=config.OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": config.SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
+            max_completion_tokens=config.MAX_TOKENS
+        )
+        return response.choices[0].message.content
+    
+    def _parse_sql_response(self, content: str) -> Dict[str, Any]:
+        """Parse OpenAI response for SQL generation."""
         try:
-            # Call the OpenAI API
-            response = self.client.chat.completions.create(
-                model=config.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": config.SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt}
-                ],
-                max_completion_tokens=config.MAX_TOKENS
-            )
-            
-            # Extract the generated SQL from the response
-            content = response.choices[0].message.content
-            
-            # Try to parse the JSON response
-            try:
-                result = json.loads(content)
-                return {
-                    'success': True,
-                    'sql': result.get('sql', ''),
-                    'tables': result.get('tables', []),
-                    'description': result.get('description', ''),
-                    'raw_response': content
-                }
-            except json.JSONDecodeError:
-                # If JSON parsing fails, try to extract SQL from the text
-                return {
-                    'success': True,
-                    'sql': content.strip(),
-                    'tables': [],
-                    'description': 'Generated SQL from text',
-                    'raw_response': content
-                }
-                
-        except Exception as e:
+            result = json.loads(content)
             return {
-                'success': False,
-                'error': str(e),
-                'sql': '',
+                'success': True,
+                'sql': result.get('sql', ''),
+                'tables': result.get('tables', []),
+                'description': result.get('description', ''),
+                'raw_response': content
+            }
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse JSON response, extracting SQL as text")
+            return {
+                'success': True,
+                'sql': content.strip(),
                 'tables': [],
-                'description': ''
+                'description': 'Generated SQL from text',
+                'raw_response': content
             }
     
     def execute_query(self, sql: str) -> Dict[str, Any]:
         """Execute a SQL query and return the results."""
         try:
-            print(f"   Executing SQL: {sql}")
+            logger.debug(f"Executing SQL: {sql}")
             result = self.db.execute(text(sql))
             
             # If it's a SELECT query, fetch the results
             if sql.strip().lower().startswith('select'):
                 columns = result.keys()
                 rows = [dict(zip(columns, row)) for row in result.fetchall()]
-                print(f"   Query returned {len(rows)} rows")
+                logger.info(f"Query returned {len(rows)} rows")
                 if rows:
-                    print(f"   Sample result: {rows[0]}")
+                    logger.debug(f"Sample result: {rows[0]}")
                 return {
                     'success': True,
                     'results': rows,
@@ -245,7 +253,7 @@ Respond with valid JSON only:
     def generate_response(self, question: str, query_results: Dict[str, Any]) -> str:
         """Generate a natural language response based on query results."""
         try:
-            print(f"   Query results for response: {query_results}")
+            logger.debug(f"Query results for response: {query_results}")
             
             # Prepare the context for the AI
             context = {
@@ -254,7 +262,7 @@ Respond with valid JSON only:
                 'sample_data': query_results.get('results', [])[:3]  # First 3 rows as sample
             }
             
-            print(f"   Context prepared: {context}")
+            logger.debug(f"Context prepared: {context}")
             
             # Create the prompt for the AI
             prompt = f"""
@@ -267,7 +275,7 @@ Respond with valid JSON only:
             אנא ענה על השאלה בעברית בצורה ברורה ותמציתית.
             """.strip()
             
-            print(f"   Prompt for response generation: {prompt}")
+            logger.debug(f"Prompt for response generation: {prompt}")
             
             # Call the OpenAI API
             response = self.client.chat.completions.create(
@@ -280,11 +288,11 @@ Respond with valid JSON only:
             )
             
             ai_response = response.choices[0].message.content.strip()
-            print(f"   AI Response: {ai_response}")
+            logger.debug(f"AI Response: {ai_response}")
             
             return ai_response
             
         except Exception as e:
             error_msg = f"אירעה שגיאה ביצירת התשובה: {str(e)}"
-            print(f"   Error in generate_response: {error_msg}")
+            logger.error(f"Error in generate_response: {error_msg}")
             return error_msg
