@@ -8,7 +8,6 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from .config import config
 from .db.database import get_db
 from .models.user import User, APIKey
 
