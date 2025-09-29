@@ -85,17 +85,47 @@ class ChatbotService:
                     sql=sql_query
                 )
             
-            # Step 3: Generate natural language response
-            logger.info("Generating natural language response...")
-            ai_answer = await self._generate_response(question, query_results)
+            # Step 3: Create natural language response with actual data
+            logger.info("Creating natural language response with results...")
             
+            # Get the actual data from query results
+            data = query_results.get('results', [])
+            row_count = query_results.get('row_count', 0)
+            
+            # Create a meaningful answer based on the data
+            if row_count == 0:
+                ai_answer = "לא נמצאו תוצאות עבור השאלה שלך."
+            elif len(data) == 1 and len(data[0]) == 1:
+                # Single number result (like COUNT)
+                number = list(data[0].values())[0]
+                if 'לקוח' in question:
+                    ai_answer = f"יש לך {number} לקוחות"
+                    if 'ירושלים' in question:
+                        ai_answer += " בירושלים"
+                    elif 'מודיעין' in question:
+                        ai_answer += " במודיעין עילית"
+                    elif any(city in question for city in ['תל אביב', 'חיפה', 'באר שבע']):
+                        city = next(city for city in ['תל אביב', 'חיפה', 'באר שבע'] if city in question)
+                        ai_answer += f" ב{city}"
+                else:
+                    ai_answer = f"התוצאה היא: {number}"
+            else:
+                # Multiple results - use AI to generate response
+                logger.info("Generating natural language response from complex results...")
+                ai_answer = await self._generate_response(question, query_results)
+            
+            logger.info(f"Final answer: {ai_answer}")
             logger.info("Question processed successfully")
-            return QueryResponse(
+            
+            response = QueryResponse(
                 question=question,
                 answer=ai_answer,
                 sql=sql_query,
+                data=data,
                 error=None
             )
+            logger.info(f"Final response: {response}")
+            return response
             
         except Exception as exc:
             logger.error(f"Unexpected error processing question: {str(exc)}", exc_info=True)
