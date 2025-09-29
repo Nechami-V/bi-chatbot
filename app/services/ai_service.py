@@ -1,3 +1,20 @@
+"""
+AI Service - Natural Language Processing for Business Intelligence
+
+This service provides AI-powered natural language understanding for converting
+Hebrew business questions into SQL queries and generating intelligent responses.
+
+Key Features:
+- OpenAI GPT integration for natural language processing
+- Database schema analysis and understanding
+- Hebrew language support for business terms
+- SQL query generation and validation
+- Natural language response generation
+
+Author: BI Chatbot Team
+Version: 2.0.0
+"""
+
 from openai import OpenAI
 from typing import Dict, List, Optional, Any
 import json
@@ -5,36 +22,72 @@ from sqlalchemy.orm import Session
 from sqlalchemy import inspect, text
 from ..simple_config import config
 
+
 class AIService:
-    """Service for handling AI-related operations including natural language understanding and SQL generation."""
+    """
+    AI Service for Natural Language to SQL Processing
+    
+    This service handles all AI-related operations for the BI Chatbot system,
+    enabling users to ask business questions in Hebrew and receive intelligent
+    answers based on database analysis.
+    
+    Attributes:
+        db (Session): SQLAlchemy database session
+        client (OpenAI): OpenAI API client for language processing
+        schema_info (Dict): Analyzed database schema information
+    """
     
     def __init__(self, db: Session):
-        """Initialize the AI service with a database session."""
+        """
+        Initialize the AI service with database connection
+        
+        Args:
+            db (Session): SQLAlchemy database session for query execution
+            
+        Raises:
+            ValueError: If OpenAI API key is not configured
+        """
         self.db = db
         self.schema_info = self._analyze_database_schema()
         
-        # Configure OpenAI client
-        self.client = OpenAI(api_key=config.OPENAI_API_KEY)
+        # Validate and configure OpenAI client
         if not config.OPENAI_API_KEY:
             raise ValueError("OpenAI API key is not configured. Please set the OPENAI_API_KEY environment variable.")
+        
+        self.client = OpenAI(api_key=config.OPENAI_API_KEY)
+        print("✅ AI Service initialized successfully")
     
     def _analyze_database_schema(self) -> Dict[str, Any]:
-        """Analyze the database schema and return a structured representation."""
+        """
+        Analyze database schema to understand structure and relationships
+        
+        This method examines the database to understand table structures,
+        column types, relationships, and constraints. This information
+        helps the AI generate more accurate SQL queries.
+        
+        Returns:
+            Dict[str, Any]: Structured schema information containing:
+                - tables: Dict of table names with column info
+                - relationships: List of foreign key relationships
+        """
+        print("🔍 Analyzing database schema...")
+        
         inspector = inspect(self.db.get_bind())
         schema = {
             'tables': {},
             'relationships': []
         }
         
-        # Only analyze the real data tables, not the mock tables
+        # Focus on business data tables (exclude system/temp tables)
         relevant_tables = ['ClientsBot2025', 'OrdersBot2025', 'ItemsBot2025', 'SalesBot2025']
         
         for table_name in relevant_tables:
-            # Check if table exists
+            # Verify table exists in database
             if table_name not in inspector.get_table_names():
+                print(f"   ⚠️  Table {table_name} not found in database")
                 continue
                 
-            # Get columns for each table
+            # Extract column information for AI understanding
             columns = []
             for column in inspector.get_columns(table_name):
                 columns.append({
@@ -45,10 +98,10 @@ class AIService:
                     'primary_key': column.get('primary_key', False)
                 })
             
-            # Get primary keys
+            # Identify primary key columns
             primary_keys = [col['name'] for col in columns if col.get('primary_key', False)]
             
-            # Get foreign keys
+            # Extract foreign key relationships for JOIN operations
             foreign_keys = []
             for fk in inspector.get_foreign_keys(table_name):
                 foreign_keys.append({
@@ -57,13 +110,14 @@ class AIService:
                     'referred_columns': fk['referred_columns']
                 })
             
+            # Store table metadata
             schema['tables'][table_name] = {
                 'columns': columns,
                 'primary_key': primary_keys,
                 'foreign_keys': foreign_keys
             }
             
-            # Add relationship information
+            # Build relationship graph for AI query generation
             for fk in foreign_keys:
                 schema['relationships'].append({
                     'from_table': table_name,

@@ -15,7 +15,6 @@ Base = declarative_base()
 def init_db():
     """Create tables and seed sample data if needed"""
     # Import models so that they are registered with Base
-    from app.models.customer import Customer  # noqa: F401
     from app.models.client import Client  # noqa: F401
     from app.models.item import Item  # noqa: F401
     from app.models.order import Order  # noqa: F401
@@ -30,11 +29,6 @@ def init_db():
         # Seed translation dictionary with basic mappings
         if not db.query(TranslationDictionaryModel).first():
             seed_translation_dictionary(db)
-            
-        # Seed sample customer data if empty  
-        if not db.query(Customer).first():
-            seed_sample_customers(db)
-            
         db.commit()
     finally:
         db.close()
@@ -73,27 +67,6 @@ def seed_translation_dictionary(db):
     
     for mapping in mappings:
         db.add(TranslationDictionaryModel(**mapping))
-
-
-def seed_sample_customers(db):
-    """Seed sample customer data"""
-    from app.models.customer import Customer
-    from datetime import datetime
-    
-    sample_customers = [
-        {"name": "שרה כהן", "city": "מודיעין עילית", "created_at": "2024-05-01"},
-        {"name": "דוד לוי", "city": "ירושלים", "created_at": "2024-06-10"},
-        {"name": "רבקה פרידמן", "city": "מודיעין עילית", "created_at": "2024-07-15"},
-        {"name": "אברהם יצחק", "city": "בני ברק", "created_at": "2024-07-20"},
-        {"name": "משה כץ", "city": "מודיעין עילית", "created_at": "2024-08-01"},
-    ]
-    
-    for customer in sample_customers:
-        db.add(Customer(
-            name=customer["name"],
-            city=customer["city"],
-            created_at=datetime.strptime(customer["created_at"], "%Y-%m-%d").date(),
-        ))
 
 
 def get_db():

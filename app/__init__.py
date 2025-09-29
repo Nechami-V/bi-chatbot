@@ -11,8 +11,6 @@ from app.models.translation_dictionary import TranslationDictionaryModel
 
 # Services imports  
 from app.services.translation_service import TranslationDictionary, TermNotFoundError
-from app.services.nlp_processor import NLPProcessor, QueryIntent, FilterCondition, ComparisonOperator, SortOrder
-from app.services.query_builder import QueryBuilder
 
 # Schema imports
 from app.schemas.query import QueryRequest, QueryResponse
@@ -25,9 +23,7 @@ __all__ = [
     "Customer", "Client", "Item", "Order", "Sale", "TranslationDictionaryModel",
     
     # Services
-    "TranslationDictionary", "TermNotFoundError", "NLPProcessor", 
-    "QueryIntent", "FilterCondition", "ComparisonOperator", "SortOrder",
-    "QueryBuilder",
+    "TranslationDictionary", "TermNotFoundError",
     
     # Schemas
     "QueryRequest", "QueryResponse"
