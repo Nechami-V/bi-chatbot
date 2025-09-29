@@ -42,7 +42,7 @@ app.add_middleware(
 
 def get_openai_key():
     """Get OpenAI API key from environment"""
-    return os.getenv('OPENAI_API_KEY', 'your-key-here')
+    return os.getenv('OPENAI_API_KEY', 'api-key')
 
 # Initialize database on startup
 @app.on_event("startup")
@@ -55,7 +55,7 @@ def root():
     return {
         "message": "BI Chatbot API v2.0 - AI Powered", 
         "status": "active",
-        "openai_key_configured": get_openai_key() != 'your-key-here'
+        "openai_key_configured": get_openai_key() != 'api-key'
     }
 
 @app.post("/ask", response_model=QueryResponse)
@@ -122,7 +122,7 @@ def health_check():
     return {
         "status": "healthy",
         "database": "connected",
-        "openai_key": get_openai_key() != 'your-key-here'
+        "openai_key": get_openai_key() != 'api-key'
     }
 
 if __name__ == "__main__":

@@ -26,10 +26,14 @@ class AIService:
             'relationships': []
         }
         
-        # Get all table names
-        table_names = inspector.get_table_names()
+        # Only analyze the real data tables, not the mock tables
+        relevant_tables = ['ClientsBot2025', 'OrdersBot2025', 'ItemsBot2025', 'SalesBot2025']
         
-        for table_name in table_names:
+        for table_name in relevant_tables:
+            # Check if table exists
+            if table_name not in inspector.get_table_names():
+                continue
+                
             # Get columns for each table
             columns = []
             for column in inspector.get_columns(table_name):
@@ -77,12 +81,34 @@ class AIService:
         
         # Create the prompt for the AI
         prompt = f"""
-        Database schema:
-        {schema_info}
-        
-        Question: "{question}"
-        
-        Generate a SQL query to answer this question. Follow the system instructions exactly.
+Based on this database schema:
+{schema_info}
+
+Hebrew Question: "{question}"
+
+Generate a precise SQL query following these rules:
+1. Use Hebrew column names as they exist in the database
+2. Hebrew text should appear in WHERE conditions for data matching
+3. Use proper JOINs when querying multiple tables
+4. Return meaningful English aliases for calculated results
+5. Ensure SQLite compatibility
+
+Key tables:
+- ClientsBot2025: customers data (ID_לקוח, fname, lname, wname, city)
+- OrdersBot2025: sales/orders data (ID_מכירה, ID_לקוח, ID_פריט, תאריך, סכום)
+- ItemsBot2025: items data (ID_פריט, name, pgrp)
+- SalesBot2025: sales metadata (ID_מכירה, week, name)
+
+Examples:
+- "כמה לקוחות יש?" → SELECT COUNT(*) AS customer_count FROM ClientsBot2025
+- "כמה לקוחות בתל אביב?" → SELECT COUNT(*) AS customer_count FROM ClientsBot2025 WHERE city = 'תל אביב'
+
+Respond with valid JSON only:
+{{
+  "sql": "your_sql_query_here",
+  "tables": ["table1", "table2"],
+  "description": "תיאור בעברית"
+}}
         """.strip()
         
         try:
@@ -131,12 +157,16 @@ class AIService:
     def execute_query(self, sql: str) -> Dict[str, Any]:
         """Execute a SQL query and return the results."""
         try:
+            print(f"   Executing SQL: {sql}")
             result = self.db.execute(text(sql))
             
             # If it's a SELECT query, fetch the results
             if sql.strip().lower().startswith('select'):
                 columns = result.keys()
                 rows = [dict(zip(columns, row)) for row in result.fetchall()]
+                print(f"   Query returned {len(rows)} rows")
+                if rows:
+                    print(f"   Sample result: {rows[0]}")
                 return {
                     'success': True,
                     'results': rows,
@@ -161,12 +191,16 @@ class AIService:
     def generate_response(self, question: str, query_results: Dict[str, Any]) -> str:
         """Generate a natural language response based on query results."""
         try:
+            print(f"   Query results for response: {query_results}")
+            
             # Prepare the context for the AI
             context = {
                 'question': question,
                 'row_count': query_results.get('row_count', 0),
                 'sample_data': query_results.get('results', [])[:3]  # First 3 rows as sample
             }
+            
+            print(f"   Context prepared: {context}")
             
             # Create the prompt for the AI
             prompt = f"""
@@ -179,6 +213,8 @@ class AIService:
             אנא ענה על השאלה בעברית בצורה ברורה ותמציתית.
             """.strip()
             
+            print(f"   Prompt for response generation: {prompt}")
+            
             # Call the OpenAI API
             response = self.client.chat.completions.create(
                 model=config.OPENAI_MODEL,
@@ -189,7 +225,12 @@ class AIService:
                 max_completion_tokens=config.MAX_TOKENS
             )
             
-            return response.choices[0].message.content.strip()
+            ai_response = response.choices[0].message.content.strip()
+            print(f"   AI Response: {ai_response}")
+            
+            return ai_response
             
         except Exception as e:
-            return f"אירעה שגיאה ביצירת התשובה: {str(e)}"
+            error_msg = f"אירעה שגיאה ביצירת התשובה: {str(e)}"
+            print(f"   Error in generate_response: {error_msg}")
+            return error_msg
