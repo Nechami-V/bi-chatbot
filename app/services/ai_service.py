@@ -26,13 +26,10 @@ class AIService:
             'relationships': []
         }
         
-        # Only analyze the real data tables, not the mock tables
-        relevant_tables = ['ClientsBot2025', 'OrdersBot2025', 'ItemsBot2025', 'SalesBot2025']
+        # Analyze all available tables in the connected database
+        table_names = inspector.get_table_names()
         
-        for table_name in relevant_tables:
-            # Check if table exists
-            if table_name not in inspector.get_table_names():
-                continue
+        for table_name in table_names:
                 
             # Get columns for each table
             columns = []
@@ -79,35 +76,34 @@ class AIService:
         # Prepare the schema information for the prompt
         schema_info = json.dumps(self.schema_info, indent=2, ensure_ascii=False)
         
-        # Create the prompt for the AI
+        # Create the prompt for the AI (strict JSON-only response) in English
         prompt = f"""
-Based on this database schema:
+Given this database schema (JSON):
 {schema_info}
 
-Hebrew Question: "{question}"
+User question (can be in Hebrew): "{question}"
 
 Generate a precise SQL query following these rules:
-1. Use Hebrew column names as they exist in the database
-2. Hebrew text should appear in WHERE conditions for data matching
-3. Use proper JOINs when querying multiple tables
-4. Return meaningful English aliases for calculated results
-5. Ensure SQLite compatibility
+1) Use only columns and tables that exist in the schema. Do NOT invent tables/columns.
+2) Join tables only when necessary, using proper JOINs.
+3) Avoid SELECT * — specify explicit column names.
+4) Ensure SQLite compatibility.
+5) For the intent "show customers" (development default): use table customer with columns: id, name, city, created_at.
+6) Do NOT add ORDER BY unless the question explicitly asks for sorting (e.g., "by last name" / "by date").
+7) For display queries ("show ..."), add LIMIT 100 by default.
+8) If the question contains Hebrew filter values (e.g., a city), use them verbatim in WHERE clauses.
 
-Key tables:
-- ClientsBot2025: customers data (ID_לקוח, fname, lname, wname, city)
-- OrdersBot2025: sales/orders data (ID_מכירה, ID_לקוח, ID_פריט, תאריך, סכום)
-- ItemsBot2025: items data (ID_פריט, name, pgrp)
-- SalesBot2025: sales metadata (ID_מכירה, week, name)
+ Disambiguation rules (very important):
+ 9) Hebrew phrase "לפי <field>" means ORDER BY <field> (sorting), NOT aggregation. Do NOT use GROUP BY unless the user asked for a count/summary.
+ 10) Hebrew words indicating count/aggregation: "כמה", "כמות", "מספר", "ספירה". Only when these appear should you use COUNT/GROUP BY.
+ 11) Example: "הצג לקוחות לפי עיר" means: list customers with their fields, ORDER BY city; do NOT GROUP BY city and do NOT COUNT.
+ 12) Example: "כמה לקוחות יש בכל עיר" means: grouped count per city using COUNT and GROUP BY city.
 
-Examples:
-- "כמה לקוחות יש?" → SELECT COUNT(*) AS customer_count FROM ClientsBot2025
-- "כמה לקוחות בתל אביב?" → SELECT COUNT(*) AS customer_count FROM ClientsBot2025 WHERE city = 'תל אביב'
-
-Respond with valid JSON only:
+Return output as JSON only, with no explanations/markdown:
 {{
-  "sql": "your_sql_query_here",
-  "tables": ["table1", "table2"],
-  "description": "תיאור בעברית"
+  "sql": "valid SQL query",
+  "tables": ["Table1", "Table2"],
+  "description": "A short Hebrew description of what the query returns"
 }}
         """.strip()
         
@@ -128,9 +124,17 @@ Respond with valid JSON only:
             # Try to parse the JSON response
             try:
                 result = json.loads(content)
+                sql_text = result.get('sql', '')
+                # Prefer 'customer' table for 'לקוחות' if both exist
+                try:
+                    available_tables = set(self.schema_info.get('tables', {}).keys())
+                    if 'לקוחות' in question and 'customer' in available_tables and 'ClientsBot2025' in available_tables:
+                        sql_text = sql_text.replace('ClientsBot2025', 'customer')
+                except Exception:
+                    pass
                 return {
                     'success': True,
-                    'sql': result.get('sql', ''),
+                    'sql': sql_text,
                     'tables': result.get('tables', []),
                     'description': result.get('description', ''),
                     'raw_response': content
@@ -188,7 +192,7 @@ Respond with valid JSON only:
                 'error': str(e)
             }
     
-    def generate_response(self, question: str, query_results: Dict[str, Any]) -> str:
+    def generate_response(self, question: str, query_results: Dict[str, Any], sql: str) -> str:
         """Generate a natural language response based on query results."""
         try:
             print(f"   Query results for response: {query_results}")
@@ -202,15 +206,38 @@ Respond with valid JSON only:
             
             print(f"   Context prepared: {context}")
             
-            # Create the prompt for the AI
+            # Extract simple SQL semantics for consistent wording
+            sql_l = (sql or "").strip().lower()
+            is_aggregation = (" group by " in sql_l) or ("count(" in sql_l) or (" sum(" in sql_l) or (" avg(" in sql_l)
+            order_by_field = None
+            if " order by " in sql_l:
+                try:
+                    ob_clause = sql_l.split(" order by ", 1)[1]
+                    # take first token (field name) before comma or space
+                    order_by_field = ob_clause.split(",")[0].strip().split()[0]
+                except Exception:
+                    order_by_field = None
+            
+            # Create the prompt for the AI (natural-language answer only) — prompt in English, answer in Hebrew
             prompt = f"""
-            המשתמש שאל: {question}
-            
-            הנה תוצאות השאילתה:
-            - מספר שורות: {context['row_count']}
-            - דוגמא לנתונים (3 שורות ראשונות): {json.dumps(context['sample_data'], ensure_ascii=False, default=str)}
-            
-            אנא ענה על השאלה בעברית בצורה ברורה ותמציתית.
+User asked (Hebrew possible): {question}
+
+Result summary for you:
+- Row count: {context['row_count']}
+- Sample (up to 3 rows): {json.dumps(context['sample_data'], ensure_ascii=False, default=str)}
+
+Answer instructions:
+- Reply in Hebrew, in 1–2 short sentences.
+- Do NOT show SQL, JSON, code or markdown.
+- If names/cities appear in the sample, you may mention them briefly.
+- If there is no data, say there are no results.
+
+ IMPORTANT semantic constraints — your text must reflect the actual SQL:
+ - SQL: {sql}
+ - Aggregation present: {is_aggregation}
+ - ORDER BY field (if any): {order_by_field}
+ - If Aggregation present is False: do NOT describe counts/summaries. Describe a list of rows. If there is an ORDER BY field, say it is sorted by that field in Hebrew.
+ - If Aggregation present is True: describe a summary (e.g., counts per city) and do NOT claim a simple list.
             """.strip()
             
             print(f"   Prompt for response generation: {prompt}")
@@ -226,11 +253,40 @@ Respond with valid JSON only:
             )
             
             ai_response = response.choices[0].message.content.strip()
-            print(f"   AI Response: {ai_response}")
-            
-            return ai_response
+            print(f"   AI Response (raw): {ai_response}")
+            clean = self._clean_answer_text(ai_response, query_results)
+            print(f"   AI Response (clean): {clean}")
+            return clean
             
         except Exception as e:
             error_msg = f"אירעה שגיאה ביצירת התשובה: {str(e)}"
             print(f"   Error in generate_response: {error_msg}")
             return error_msg
+
+    def _clean_answer_text(self, text: str, query_results: Dict[str, Any]) -> str:
+        """Ensure the final answer is a short Hebrew sentence without SQL/JSON/Markdown."""
+        try:
+            # Strip code fences and markdown artifacts
+            txt = text.strip()
+            if txt.startswith("```") and txt.endswith("```"):
+                txt = txt.strip("`")
+            # If JSON slipped through, try to parse and use description
+            if (txt.startswith("{") and txt.endswith("}")) or '"sql"' in txt:
+                try:
+                    data = json.loads(txt)
+                    desc = data.get("description")
+                    if isinstance(desc, str) and desc.strip():
+                        return desc.strip()
+                except Exception:
+                    pass
+            # Collapse to one or two short sentences
+            txt = txt.replace("\n", " ").replace("\r", " ")
+            txt = txt.replace("  ", " ").strip()
+            if len(txt) > 220:
+                # fallback to summary using row_count
+                rc = query_results.get("row_count", 0)
+                return f"נמצאו {rc} רשומות רלוונטיות לשאלה."
+            return txt
+        except Exception:
+            rc = query_results.get("row_count", 0)
+            return f"נמצאו {rc} רשומות."

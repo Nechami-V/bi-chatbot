@@ -2,7 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Dict, Any
+
 import os
 from dotenv import load_dotenv
 
@@ -22,6 +23,7 @@ class QueryResponse(BaseModel):
     question: str
     answer: str
     sql: Optional[str] = None
+    data: Optional[List[Dict[str, Any]]] = None
     error: Optional[str] = None
 
 # Initialize FastAPI app
@@ -97,12 +99,13 @@ async def ask_question_post(request: QueryRequest, db: Session = Depends(get_db)
         
         # Step 3: Generate natural language response
         print("3. Generating natural language response...")
-        ai_answer = ai_service.generate_response(question, query_results)
+        ai_answer = ai_service.generate_response(question, query_results, sql_query)
         
         return QueryResponse(
             question=question,
             answer=ai_answer,
             sql=sql_query,
+            data=query_results.get('results', []),
             error=None
         )
         
