@@ -15,13 +15,17 @@ Author: BI Chatbot Team
 Version: 2.0.0
 """
 
+import logging
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal
+from app.db.database import SessionLocal
 from app.models.translation_dictionary import TranslationDictionaryModel
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 class TermNotFoundError(Exception):
@@ -117,7 +121,7 @@ class TranslationDictionary:
                 self._cache[normalized_term] = mapping
                 
             self._cache_loaded = True
-            print(f"📚 Loaded {len(self._cache)} translation mappings from database")
+            logger.info(f"Loaded {len(self._cache)} translation mappings from database")
             
         finally:
             if not self._db:  # Only close if we created the session
@@ -155,8 +159,8 @@ class TranslationDictionary:
                 best_match = mapping
 
         if best_match:
-            print(
-                f"🔍 Fuzzy matched '{term}' to '{best_match.canonical_term}' (score: {best_score})"
+            logger.info(
+                f"Fuzzy matched '{term}' to '{best_match.canonical_term}' (score: {best_score})"
             )
             return best_match
             
