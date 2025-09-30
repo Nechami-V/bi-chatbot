@@ -1,37 +1,68 @@
-from fastapi import FastAPI, Depends, HTTPException
+"""
+BI Chatbot API - Main Application Entry Point
+
+This FastAPI application powers the BI Chatbot system. It enables users to ask
+business intelligence questions in Hebrew and receive intelligent answers based
+on database analysis.
+
+Key Capabilities
+----------------
+1. Hebrew natural language processing
+2. Automatic SQL query generation
+3. Database execution and results analysis
+4. Natural language response generation
+5. RESTful API with auto-generated documentation
+
+Available Endpoints
+-------------------
+- GET  /          : Root endpoint with system info
+- POST /ask       : Main chatbot endpoint
+- GET  /health    : Health check endpoint
+- Swagger UI      : /docs
+- ReDoc           : /redoc
+
+Author: BI Chatbot Team
+Version: 2.0.0
+"""
+
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables (expects .env file)
 load_dotenv()
 
-# Import database and services
+# Import database utilities and services
 from app.db.database import init_db, get_db
-from app.services.translation_service import TranslationDictionary
-from app.services.ai_service import AIService
+from app.services.chatbot_service import ChatbotService
 
-# Request/Response models
-class QueryRequest(BaseModel):
-    question: str
+# Import API versioned routes
+from app.api.v1.routes import router as v1_router
 
-class QueryResponse(BaseModel):
-    question: str
-    answer: str
-    sql: Optional[str] = None
-    error: Optional[str] = None
+# Import shared schemas
+from app.schemas.chat import QueryRequest, QueryResponse
 
-# Initialize FastAPI app
+
 app = FastAPI(
     title="BI Chatbot API",
-    description="API for natural language to BI queries with AI",
-    version="2.0.0"
+    description=(
+        """AI-powered Business Intelligence Chatbot API.\n\n"
+        "Ask business questions in Hebrew and receive intelligent answers "
+        "based on database analysis. The system uses advanced AI models to "
+        "understand natural language, generate SQL, execute queries, and "
+        "produce natural language responses."""
+    ),
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
-# Enable CORS
+# Enable CORS (update allow_origins for production)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -40,91 +71,69 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def get_openai_key():
-    """Get OpenAI API key from environment"""
-    return os.getenv('OPENAI_API_KEY', 'api-key')
 
-# Initialize database on startup
+def get_openai_key() -> str:
+    """Retrieve the OpenAI API key from environment variables"""
+
+    return os.getenv("OPENAI_API_KEY", "api-key")
+
+
 @app.on_event("startup")
-async def startup_event():
-    init_db()
+async def startup_event() -> None:
+    """Run initialization tasks when the API starts"""
 
-# API Endpoints
-@app.get("/")
+    print("🚀 BI Chatbot API starting...")
+    init_db()
+    print("✅ Initialization complete")
+
+
+# Mount versioned API routes
+app.include_router(v1_router, prefix="/api/v1", tags=["API v1"])
+
+
+@app.get("/", tags=["System"])
 def root():
+    """Provide basic information about the service"""
+
     return {
-        "message": "BI Chatbot API v2.0 - AI Powered", 
+        "name": "BI Chatbot API",
+        "version": "2.0.0",
+        "description": "AI-powered Business Intelligence Chatbot",
         "status": "active",
-        "openai_key_configured": get_openai_key() != 'api-key'
+        "openai_configured": get_openai_key() != "api-key",
+        "endpoints": {
+            "chat": "/ask",
+            "health": "/health",
+            "docs": "/docs",
+            "api_v1": "/api/v1",
+        },
     }
 
-@app.post("/ask", response_model=QueryResponse)
-async def ask_question_post(request: QueryRequest, db: Session = Depends(get_db)) -> QueryResponse:
-    """Ask a question in natural language and get a response based on BI data with AI"""
-    question = request.question
-    
-    try:
-        print(f"📝 Received question: {question}")
-        
-        # Initialize AI service
-        ai_service = AIService(db)
-        
-        # Step 1: Generate SQL from natural language question
-        print("1. Generating SQL from question using AI...")
-        sql_result = ai_service.generate_sql(question)
-        
-        if not sql_result.get('success'):
-            return QueryResponse(
-                question=question,
-                answer=f"שגיאה ביצירת שאילתת SQL: {sql_result.get('error')}",
-                error=sql_result.get('error')
-            )
-        
-        sql_query = sql_result.get('sql')
-        print(f"   Generated SQL: {sql_query}")
-        
-        # Step 2: Execute the query
-        print("2. Executing SQL query...")
-        query_results = ai_service.execute_query(sql_query)
-        
-        if not query_results.get('success'):
-            return QueryResponse(
-                question=question,
-                answer=f"שגיאה בביצוע השאילתה: {query_results.get('error')}",
-                sql=sql_query,
-                error=query_results.get('error')
-            )
-        
-        # Step 3: Generate natural language response
-        print("3. Generating natural language response...")
-        ai_answer = ai_service.generate_response(question, query_results)
-        
-        return QueryResponse(
-            question=question,
-            answer=ai_answer,
-            sql=sql_query,
-            error=None
-        )
-        
-    except Exception as e:
-        error_msg = f"שגיאה בעיבוד השאלה: {str(e)}"
-        print(f"❌ Error: {error_msg}")
-        
-        return QueryResponse(
-            question=question,
-            answer=error_msg,
-            error=str(e)
-        )
 
-@app.get("/health")
-def health_check():
-    """Health check endpoint"""
+@app.post("/ask", response_model=QueryResponse, tags=["Chatbot"])
+async def ask_question(request: QueryRequest, db: Session = Depends(get_db)) -> QueryResponse:
+    """Process a natural language question and return a structured response"""
+    
+    chatbot_service = ChatbotService(db)
+    return await chatbot_service.process_question(request)
+
+
+@app.get("/health", tags=["System"])
+def health_check() -> dict:
+    """Basic health check endpoint
+
+    Returns information about system status and configuration.
+    """
+
     return {
         "status": "healthy",
         "database": "connected",
-        "openai_key": get_openai_key() != 'api-key'
+        "openai_configured": get_openai_key() != "api-key",
+        "version": "2.0.0",
     }
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8081)
