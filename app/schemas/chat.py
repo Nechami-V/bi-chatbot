@@ -29,3 +29,8 @@ class QueryResponse(BaseModel):
     sql: Optional[str] = Field(None, description="Generated SQL query")
     data: Optional[List[Dict[str, Any]]] = Field(None, description="Query results data")
     error: Optional[str] = Field(None, description="Error message if any")
+    total_time_ms: Optional[float] = Field(None, description="Total end-to-end processing time in milliseconds")
+    timings_ms: Optional[Dict[str, float]] = Field(
+        None,
+        description="Detailed timings in milliseconds: { sql_gen, db_exec, answer_gen, total }",
+    )
