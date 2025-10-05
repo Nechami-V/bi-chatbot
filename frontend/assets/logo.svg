@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Background Circle -->
+  <ellipse cx="100" cy="100" rx="85" ry="85" fill="none" stroke="#5B6BC0" stroke-width="20" opacity="0.8"/>
+  
+  <!-- K Letter -->
+  <path d="M50 60 L50 140 M50 95 L85 60 M50 105 L85 140" 
+        stroke="#8BC34A" 
+        stroke-width="12" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        fill="none"/>
+  
+  <!-- T Letter -->
+  <path d="M110 60 L150 60 M130 60 L130 140" 
+        stroke="#8BC34A" 
+        stroke-width="12" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        fill="none"/>
+</svg>

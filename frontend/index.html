@@ -3,31 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BI Chatbot - צ'אט בוט לניתוח עסקי</title>
+    <title>KT BI Chatbot - צ'אט בוט לניתוח עסקי</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Header -->
+        <!-- Header with Authentication -->
         <header class="header">
             <div class="header-content">
-                <h1><i class="fas fa-chart-bar"></i> BI Chatbot</h1>
-                <p>שאל שאלות על הנתונים העסקיים שלך בעברית</p>
+                <!-- Logo Section -->
+                <div class="header-logo">
+                    <img src="assets/kt-logo.png" alt="KT Logo" class="logo-image">
+                    <div class="brand-info">
+                        <h1>BI Chatbot</h1>
+                        <p>מערכת ניתוח נתונים חכמה</p>
+                    </div>
+                </div>
+                
+                <!-- User Section -->
+                <div class="user-section">
+                    <div class="user-info">
+                        <div class="user-avatar" id="userAvatar">??</div>
+                        <div class="user-details">
+                            <span class="user-name" id="userName">טוען...</span>
+                            <span class="user-role" id="userRole">-</span>
+                        </div>
+                    </div>
+                    <button class="logout-btn" onclick="handleLogout()">
+                        <i class="fas fa-sign-out-alt"></i>
+                        התנתק
+                    </button>
+                </div>
             </div>
         </header>
 
         <!-- Main Chat Container -->
         <main class="chat-container">
             <div class="chat-messages" id="chatMessages">
-                <!-- Welcome message -->
-                <div class="message bot-message welcome">
+                <!-- Welcome message will be added dynamically -->
+                <div class="message bot-message welcome" id="welcomeMessage">
                     <div class="message-avatar">
                         <i class="fas fa-robot"></i>
                     </div>
                     <div class="message-content">
-                        <p><strong>שלום!</strong> אני הצ'אט בוט שלך לניתוח נתונים עסקיים.</p>
+                        <p id="welcomeText"><strong>שלום!</strong> אני הצ'אט בוט שלך לניתוח נתונים עסקיים.</p>
                         <p>תוכל לשאול אותי שאלות כמו:</p>
                         <ul>
                             <li>"כמה לקוחות יש לי?"</li>
