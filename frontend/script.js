@@ -1,9 +1,11 @@
-// BI Chatbot Frontend - Modern JavaScript Implementation
+// KT BI Chatbot Frontend - Modern JavaScript Implementation with Authentication
 class BiChatbot {
     constructor() {
-        this.apiUrl = 'http://localhost:8080';
+        this.apiUrl = 'http://localhost:8002';
         this.isLoading = false;
         this.messageCount = 0;
+        this.authToken = null;
+        this.userInfo = null;
         
         // DOM Elements
         this.elements = {
@@ -14,14 +16,21 @@ class BiChatbot {
             charCount: document.getElementById('charCount'),
             statusIndicator: document.getElementById('statusIndicator'),
             loadingOverlay: document.getElementById('loadingOverlay'),
-            toast: document.getElementById('toast')
+            toast: document.getElementById('toast'),
+            welcomeText: document.getElementById('welcomeText'),
+            userName: document.getElementById('userName'),
+            userRole: document.getElementById('userRole'),
+            userAvatar: document.getElementById('userAvatar')
         };
         
         this.init();
     }
     
     init() {
-        console.log('🚀 BI Chatbot initialized');
+        console.log('🚀 KT BI Chatbot initialized');
+        
+        // Check authentication first
+        this.checkAuthentication();
         
         // Event listeners
         this.setupEventListeners();
@@ -125,12 +134,10 @@ class BiChatbot {
         this.setLoading(true);
         
         try {
-            // Send to API
+            // Send to API with authentication
             const response = await fetch(`${this.apiUrl}/ask`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: this.getAuthHeaders(),
                 body: JSON.stringify({ question: message })
             });
             
@@ -387,6 +394,86 @@ window.addEventListener('beforeunload', (e) => {
         e.returnValue = 'יש בקשה בתהליך. האם אתה בטוח שברצונך לצאת?';
     }
 });
+
+// Authentication Methods - Added to BiChatbot class
+BiChatbot.prototype.checkAuthentication = function() {
+    const token = localStorage.getItem('authToken');
+    const userInfo = localStorage.getItem('userInfo');
+    
+    if (!token || !userInfo) {
+        // Redirect to login
+        window.location.href = 'login.html';
+        return;
+    }
+    
+    try {
+        this.authToken = token;
+        this.userInfo = JSON.parse(userInfo);
+        this.setupUserInterface();
+    } catch (error) {
+        console.error('Error parsing user info:', error);
+        this.logout();
+    }
+};
+
+BiChatbot.prototype.setupUserInterface = function() {
+    const user = this.userInfo.user;
+    
+    // Update user display
+    this.elements.userName.textContent = user.full_name;
+    this.elements.userRole.textContent = this.getRoleDisplay(user.permission_group);
+    
+    // Create user initials
+    const initials = this.getUserInitials(user.first_name, user.last_name);
+    this.elements.userAvatar.textContent = initials;
+    
+    // Update welcome message
+    this.elements.welcomeText.innerHTML = `
+        <strong>שלום ${user.first_name}!</strong> אני הצ'אט בוט שלך לניתוח נתונים עסקיים.
+        <br>אני כאן כדי לעזור לך להבין את הנתונים שלך ולענות על השאלות העסקיות שלך.
+    `;
+};
+
+BiChatbot.prototype.getUserInitials = function(firstName, lastName) {
+    if (!firstName || !lastName) return '??';
+    return firstName.charAt(0) + lastName.charAt(0);
+};
+
+BiChatbot.prototype.getRoleDisplay = function(permissionGroup) {
+    const roleMap = {
+        'admin': 'מנהל מערכת',
+        'sales_manager': 'מנהל מכירות',
+        'sales': 'איש מכירות',
+        'marketing': 'שיווק',
+        'finance': 'כספים',
+        'readonly': 'צפייה בלבד'
+    };
+    return roleMap[permissionGroup] || permissionGroup;
+};
+
+BiChatbot.prototype.getAuthHeaders = function() {
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.authToken}`
+    };
+};
+
+BiChatbot.prototype.logout = function() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('tokenType');
+    localStorage.removeItem('userInfo');
+    window.location.href = 'login.html';
+};
+
+// Global logout function
+function handleLogout() {
+    if (window.chatbot) {
+        window.chatbot.logout();
+    } else {
+        localStorage.clear();
+        window.location.href = 'login.html';
+    }
+}
 
 // Service worker registration (for future PWA capabilities)
 if ('serviceWorker' in navigator) {

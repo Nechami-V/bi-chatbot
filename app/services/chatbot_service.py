@@ -1,25 +1,28 @@
 """
-Chatbot Service - Business Logic for Question Processing
+Chatbot Service - Business Logic for Question Processing with Authentication
 
 This service handles the main business logic for processing natural language
 questions and generating responses. It orchestrates the AI service and provides
-a clean interface for the API endpoints.
+a clean interface for the API endpoints with user authentication and permissions.
 
 Key Responsibilities:
-- Question validation and preprocessing
+- Question validation and preprocessing  
+- User authentication and permission checking
 - AI service orchestration (SQL generation, execution, response)
 - Error handling and logging
 - Response formatting
 
 Author: BI Chatbot Team
-Version: 2.0.0
+Version: 3.0.0 - With Authentication
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 import logging
 
 from app.services.ai_service import AIService
+from app.services.permission_service import PermissionManager
+from app.models.user import User
 from app.schemas.chat import QueryRequest, QueryResponse
 
 # Configure logging
@@ -44,15 +47,19 @@ class ChatbotService:
         self.db = db
         self.ai_service = AIService(db)
     
-    async def process_question(self, request: QueryRequest) -> QueryResponse:
+    async def process_question(self, request: QueryRequest, user: Optional[User] = None) -> QueryResponse:
         """
-        Process a natural language question and generate a complete response
+        Process a natural language question with user authentication and permissions
         
         Args:
             request (QueryRequest): The user's question request
+            user (User, optional): Authenticated user for permission checking
             
         Returns:
             QueryResponse: Complete response with answer, SQL, and metadata
+            
+        Raises:
+            PermissionError: If user lacks required permissions
         """
         question = request.question
         
