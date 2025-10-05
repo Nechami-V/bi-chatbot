@@ -103,11 +103,11 @@ class UserDatabase:
                 session.add(user)
             
             session.commit()
-            print(f"✅ Created {len(sample_users)} sample users")
+            # Successfully created users - silent initialization
             
         except Exception as e:
             session.rollback()
-            print(f"❌ Error creating sample users: {e}")
+            # Silent error handling - users already exist or database issue
         finally:
             session.close()
     

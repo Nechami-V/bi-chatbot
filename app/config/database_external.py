@@ -25,7 +25,7 @@ class ExternalUserService:
         """Get user from external database"""
         session = self.SessionLocal()
         try:
-            # שאילתה לטבלת משתמשים קיימת
+            # Query existing users table
             result = session.execute("""
                 SELECT 
                     user_id,
@@ -58,14 +58,14 @@ class ExternalUserService:
         user_data = self.get_user_by_email(email)
         
         if user_data:
-            # בדיקת סיסמה (תלוי במערכת החיצונית)
+            # Verify password (depends on external system)
             if self.verify_password(password, user_data['password_hash']):
                 return user_data
         return None
     
     def verify_password(self, password: str, hashed: str) -> bool:
         """Verify password - adapt to your system"""
-        # דוגמה - להתאים למערכת שלך
+        # Example - adapt to your system
         import hashlib
         return hashlib.sha256(password.encode()).hexdigest() == hashed
 
