@@ -246,6 +246,22 @@ class AIService:
         """
         if not question:
             return None
+        # Handle city-only short queries like "בחיפה?" → assume intent is customer count by city
+        city_only = self._extract_city_from_question(question)
+        if city_only:
+            safe_city = city_only.replace("'", "''").strip()
+            sql = (
+                "SELECT COUNT(*) AS customer_count FROM ClientsBot2025 "
+                f"WHERE TRIM(city) = '{safe_city}' OR TRIM(city) LIKE '{safe_city}%'"
+            )
+            return {
+                'success': True,
+                'sql': sql,
+                'tables': ['ClientsBot2025'],
+                'description': f"ספירת לקוחות בעיר {city_only}",
+                'raw_response': None,
+                'error': None,
+            }
         q = question.strip()
         q_low = q.lower()
         # Detect intent: count customers
@@ -394,18 +410,23 @@ class AIService:
             sample = query_results.get("results", [])[:1]
             columns = list(sample[0].keys()) if sample else []
             prompt = (
-                "כתוב משפט קצר אחד בעברית תקנית העונה ישירות על השאלה. אין טבלאות ואין קוד. "
-                "שלב בשם היישות (למשל עיר/שבוע/שם) ובמספרים מן הנתונים. החזר משפט אחד בלבד.\n"
+                "כתוב משפט אחד קצר, ברור ותמציתי בעברית, שמובן גם למי שלא ראה את השאלה. "
+                "המשפט חייב להיות עצמאי ולציין במפורש את הנושא המרכזי (למשל מספר הלקוחות/שם העיר/השבוע), ואת הערכים מתוך הנתונים. "
+                "אין להשתמש בטבלאות, אין להשתמש בקוד, ואין להחזיר יותר ממשפט אחד.\n"
                 f"השאלה: {question}\n"
                 f"עמודות: {json.dumps(columns, ensure_ascii=False)}\n"
                 f"דוגמה נתונים: {json.dumps(sample, ensure_ascii=False, default=str)}\n"
+                "דוגמאות לסגנון ניסוח: \n"
+                "- אם מדובר בספירת לקוחות כללית: 'מספר הלקוחות הכולל הוא 1,234.'\n"
+                "- אם מדובר בעיר מסוימת: 'בעיר חיפה יש 1,137 לקוחות.'\n"
+                "- אם מדובר בשבוע: 'בשבוע 12 נמכרו 980 יחידות.'\n"
             )
             ans_tokens = min(160, getattr(config, "MAX_TOKENS", 1000))
             try:
                 response = self.client.chat.completions.create(
                     model=config.OPENAI_MODEL,
                     messages=[
-                        {"role": "system", "content": "אתה מסביר תוצאות במשפט אחד בעברית. החזר טקסט בלבד."},
+                        {"role": "system", "content": "You produce exactly one concise sentence in Hebrew that is fully self-contained and understandable without seeing the question. Return only the sentence, no lists, no code."},
                         {"role": "user", "content": prompt},
                     ],
                     max_completion_tokens=ans_tokens,
@@ -437,8 +458,8 @@ class AIService:
 
             if _too_generic(ai_response):
                 prompt2 = (
-                    "חבר משפט אחד ברור בעברית שמכיל את הערכים מן הנתונים ועונה ישירות לשאלה. "
-                    "אל תכתוב את התבנית 'נמצאו X תוצאות'. אל תכתוב קוד או רשימות. כתוב משפט ספציפי בלבד.\n"
+                    "Write one short, clear sentence in Hebrew that is self-contained and includes the relevant values from the data. "
+                    "Do not write 'נמצאו X תוצאות', do not write lists or code. Return exactly one specific sentence.\n"
                     f"השאלה: {question}\n"
                     f"עמודות: {json.dumps(columns, ensure_ascii=False)}\n"
                     f"דוגמה נתונים: {json.dumps(sample, ensure_ascii=False, default=str)}\n"
@@ -446,7 +467,7 @@ class AIService:
                 response2 = self.client.chat.completions.create(
                     model=config.OPENAI_MODEL,
                     messages=[
-                        {"role": "system", "content": "אתה כותב תשובה במשפט אחד בעברית. אין טבלאות ואין קוד."},
+                        {"role": "system", "content": "You produce exactly one concise, self-contained Hebrew sentence. No tables, no code."},
                         {"role": "user", "content": prompt2},
                     ],
                     max_completion_tokens=ans_tokens,
@@ -455,7 +476,10 @@ class AIService:
                 if not _too_generic(ai_response2):
                     return ai_response2
 
-            # Deterministic minimal fallback if model still failed
+            # Last-resort deterministic fallback if model still failed
+            explicit = self._format_explicit_answer(question, query_results)
+            if explicit:
+                return explicit
             rows = query_results.get("results", [])
             rc = query_results.get("row_count", 0)
             if rc == 0:
@@ -475,3 +499,73 @@ class AIService:
             elapsed = time.perf_counter() - start_time
             logger.error(f"❌ Error generating response after {elapsed:.2f} sec: {str(e)}")
             return f"אירעה שגיאה ביצירת התשובה: {str(e)}"
+
+    def _extract_city_from_question(self, question: str) -> Optional[str]:
+        if not question:
+            return None
+        import re
+        q = (question or "").strip()
+        # Pattern A: space-then-"ב" until end
+        m = re.search(r"\sב([^?.!,]+)$", q)
+        city = None
+        if m:
+            city = m.group(1)
+        else:
+            # Pattern B: standalone token starting with 'ב' even without a leading space, e.g., "בחיפה?"
+            m2 = re.search(r"\bב([\u0590-\u05FFA-Za-z\-\s]+)[?!. ,]*$", q)
+            if m2:
+                city = m2.group(1)
+        if not city:
+            return None
+        city = city.strip()
+        city = re.sub(r"^(עיר|בעיר)\s+", "", city).strip()
+        city = city.replace('יש', '').strip()
+        city = city.strip("'\"")
+        return city or None
+
+    def _format_explicit_answer(self, question: str, query_results: Dict[str, Any]) -> Optional[str]:
+        """Return a clear, self-contained Hebrew sentence for common result shapes.
+        Especially for customer counts overall or by city.
+        """
+        rows = query_results.get("results", []) or []
+        rc = query_results.get("row_count", 0)
+        if rc == 0:
+            return "לא נמצאו תוצאות."
+        if rc >= 1:
+            row = rows[0]
+            cols = [str(c).lower() for c in row.keys()]
+            # Common count column names
+            count_cols = [
+                "customer_count", "total_customers", "count", "cnt", "מספר_לקוחות", "ספירת_לקוחות"
+            ]
+            # Try find a count-like column
+            count_col = None
+            for c in cols:
+                if any(c == k or k in c for k in count_cols):
+                    count_col = c
+                    break
+            if count_col:
+                n = row[[k for k in row.keys() if k.lower() == count_col][0]]
+                # Try city from data first, then from question
+                city_key = None
+                for ck in ["city", "עיר"]:
+                    if ck in cols:
+                        city_key = [k for k in row.keys() if k.lower() == ck][0]
+                        break
+                city = row.get(city_key) if city_key else self._extract_city_from_question(question)
+                if city:
+                    return f"בעיר {city} יש {n} לקוחות."
+                return f"מספר הלקוחות הכולל הוא {n}."
+
+            # If single numeric cell overall
+            if len(row) == 1:
+                val = list(row.values())[0]
+                # If question mentions לקוחות
+                if "לקוח" in (question or "") or "לקוחות" in (question or ""):
+                    city = self._extract_city_from_question(question)
+                    if city:
+                        return f"בעיר {city} יש {val} לקוחות."
+                    return f"מספר הלקוחות הכולל הוא {val}."
+                return f"התוצאה היא {val}."
+
+        return None

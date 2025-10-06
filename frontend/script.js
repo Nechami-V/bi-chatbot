@@ -187,25 +187,15 @@ class BiChatbot {
         
         let content = '';
         
-        // Add the main answer (clean and simple)
+        // Add the main answer (clean and simple) without timing summary
         if (data.answer) {
-            // Timing summary (visible without opening details)
-            let timingSummary = '';
-            const serverMs = (typeof data.total_time_ms === 'number') ? data.total_time_ms : null;
-            const clientMs = (typeof data.client_time_ms === 'number') ? data.client_time_ms : null;
-            if (serverMs !== null || clientMs !== null) {
-                const parts = [];
-                if (serverMs !== null) parts.push(`שרת: ${(serverMs/1000).toFixed(2)}s`);
-                if (clientMs !== null) parts.push(`לקוח: ${clientMs.toFixed(0)}ms`);
-                timingSummary = `<div style="margin-bottom: 0.4rem; color: #64748b; font-size: 0.8rem;">${parts.join(' | ')}</div>`;
-            }
-            content += `${timingSummary}<p>${this.escapeHtml(data.answer)}</p>`;
+            content += `<p>${this.escapeHtml(data.answer)}</p>`;
         }
         
         // Do not auto-render data table; it can be viewed in the details section
         
         // Add technical details in a collapsible section (optional)
-        const hasDetails = (data.sql || data.total_time_ms || data.timings_ms || typeof data.client_time_ms === 'number' || (data.data && Array.isArray(data.data) && data.data.length > 0));
+        const hasDetails = (data.sql || (data.data && Array.isArray(data.data) && data.data.length > 0));
         if (hasDetails) {
             const detailsId = `details-${Date.now()}`;
             content += `
@@ -230,26 +220,7 @@ class BiChatbot {
                 `;
             }
             
-            const breakdown = data.timings_ms || {};
-            if (typeof data.total_time_ms === 'number' || Object.keys(breakdown).length > 0 || typeof data.client_time_ms === 'number') {
-                content += `<div style="font-size: 0.8rem; color: #64748b; margin-top: 0.25rem;">`;
-                if (typeof data.total_time_ms === 'number') {
-                    content += `<p style="margin: 0.2rem 0;"><i class=\"fas fa-server\"></i> זמן שרת כולל: ${(data.total_time_ms/1000).toFixed(2)} שניות</p>`;
-                }
-                if (typeof breakdown.sql_gen === 'number') {
-                    content += `<p style=\"margin: 0.2rem 0;\">• SQL: ${breakdown.sql_gen.toFixed(1)}ms</p>`;
-                }
-                if (typeof breakdown.db_exec === 'number') {
-                    content += `<p style=\"margin: 0.2rem 0;\">• DB: ${breakdown.db_exec.toFixed(1)}ms</p>`;
-                }
-                if (typeof breakdown.answer_gen === 'number') {
-                    content += `<p style=\"margin: 0.2rem 0;\">• תשובה: ${breakdown.answer_gen.toFixed(1)}ms</p>`;
-                }
-                if (typeof data.client_time_ms === 'number') {
-                    content += `<p style=\"margin: 0.2rem 0;\"><i class=\"fas fa-network-wired\"></i> זמן צד לקוח: ${data.client_time_ms.toFixed(1)}ms</p>`;
-                }
-                content += `</div>`;
-            }
+            // Removed timing breakdown by product requirement
 
             // Removed on-demand data table rendering by product requirement
             
