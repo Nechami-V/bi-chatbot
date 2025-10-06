@@ -1,7 +1,7 @@
 // KT BI Chatbot Frontend - Modern JavaScript Implementation with Authentication
 class BiChatbot {
     constructor() {
-        this.apiUrl = 'http://localhost:8002';
+        this.apiUrl = 'http://localhost:8000';
         this.isLoading = false;
         this.messageCount = 0;
         this.authToken = null;
@@ -127,7 +127,6 @@ class BiChatbot {
         
         // Clear input
         this.elements.messageInput.value = '';
-        this.updateCharCount(0);
         this.toggleSendButton();
         
         // Show loading
@@ -135,6 +134,7 @@ class BiChatbot {
         
         try {
             // Send to API with authentication
+            const t0 = performance.now();
             const response = await fetch(`${this.apiUrl}/ask`, {
                 method: 'POST',
                 headers: this.getAuthHeaders(),
@@ -146,6 +146,7 @@ class BiChatbot {
             }
             
             const data = await response.json();
+            data.client_time_ms = performance.now() - t0;
             
             // Add bot response
             this.addBotResponse(data);
@@ -154,6 +155,7 @@ class BiChatbot {
             console.error('Send message failed:', error);
             this.addErrorMessage(error.message);
             this.showToast('שגיאה בשליחת השאלה. נסה שוב.', 'error');
+            
         } finally {
             this.setLoading(false);
         }
@@ -185,18 +187,15 @@ class BiChatbot {
         
         let content = '';
         
-        // Add the main answer (clean and simple)
+        // Add the main answer (clean and simple) without timing summary
         if (data.answer) {
             content += `<p>${this.escapeHtml(data.answer)}</p>`;
         }
         
-        // Add data table if available (but clean)
-        if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-            content += this.formatSimpleDataTable(data.data);
-        }
+        // Do not auto-render data table; it can be viewed in the details section
         
         // Add technical details in a collapsible section (optional)
-        const hasDetails = data.sql_query || data.execution_time;
+        const hasDetails = (data.sql || (data.data && Array.isArray(data.data) && data.data.length > 0));
         if (hasDetails) {
             const detailsId = `details-${Date.now()}`;
             content += `
@@ -208,26 +207,22 @@ class BiChatbot {
                     <div id="${detailsId}" style="display: none; margin-top: 0.5rem;">
             `;
             
-            if (data.sql_query) {
+            if (data.sql) {
                 content += `
                     <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: #f8fafc; border-radius: 0.5rem; border-right: 2px solid #64748b;">
                         <p style="font-weight: 600; color: #475569; margin-bottom: 0.25rem; font-size: 0.85rem;">
                             <i class="fas fa-database"></i> SQL Query:
                         </p>
                         <code style="background: #ffffff; padding: 0.5rem; border-radius: 0.25rem; display: block; font-family: 'Courier New', monospace; font-size: 0.8rem; direction: ltr; text-align: left; color: #374151;">
-                            ${this.escapeHtml(data.sql_query)}
+                            ${this.escapeHtml(data.sql)}
                         </code>
                     </div>
                 `;
             }
             
-            if (data.execution_time) {
-                content += `
-                    <p style="font-size: 0.8rem; color: #64748b; margin: 0;">
-                        <i class="fas fa-clock"></i> זמן ביצוע: ${data.execution_time.toFixed(2)} שניות
-                    </p>
-                `;
-            }
+            // Removed timing breakdown by product requirement
+
+            // Removed on-demand data table rendering by product requirement
             
             content += `</div></div>`;
         }

@@ -1,228 +1,141 @@
 """
-Chatbot Service - Business Logic for Question Processing with Authentication
+Chatbot Service - BI Natural Language Processing Layer
 
-This service handles the main business logic for processing natural language
-questions and generating responses. It orchestrates the AI service and provides
-a clean interface for the API endpoints with user authentication and permissions.
-
-Key Responsibilities:
-- Question validation and preprocessing  
-- User authentication and permission checking
-- AI service orchestration (SQL generation, execution, response)
-- Error handling and logging
-- Response formatting
-
-Author: BI Chatbot Team
-Version: 3.0.0 - With Authentication
+Handles:
+- Question processing and validation
+- Context-aware follow-up handling
+- SQL generation and execution
+- Timed performance metrics
+- Error resilience and clean logging
 """
 
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 import logging
+import time
 
 from app.services.ai_service import AIService
-from app.services.permission_service import PermissionManager
 from app.models.user import User
 from app.schemas.chat import QueryRequest, QueryResponse
+from app.simple_config import config
 
-# Configure logging
 logger = logging.getLogger(__name__)
+
+USER_CONTEXT: dict = {}  # for conversation continuity
+
+
+def _resolve_followup(prev_q: str, new_q: str) -> str:
+    """Reconstruct a full question from a short follow-up."""
+    if not prev_q:
+        return new_q.strip()
+    q = new_q.strip()
+    if q.startswith('ו'):
+        q = q[1:].strip()
+    if 'לקוח' in prev_q and 'לקוח' not in q:
+        if q.startswith('ב'):
+            return f"כמה לקוחות יש {q}"
+        return f"כמה לקוחות יש {q}"
+    return f"{prev_q} {q}"
 
 
 class ChatbotService:
-    """
-    Main chatbot service for processing natural language questions
-    
-    This service provides a clean interface for processing user questions
-    and generating appropriate responses using AI capabilities.
-    """
-    
+    """Main chatbot logic with performance tracking."""
+
     def __init__(self, db: Session):
-        """
-        Initialize the chatbot service with database session
-        
-        Args:
-            db (Session): SQLAlchemy database session
-        """
         self.db = db
-        self.ai_service = AIService(db)
-    
+        self.ai_service = AIService(db, system_prompt=config.SYSTEM_PROMPT)
+
     async def process_question(self, request: QueryRequest, user: Optional[User] = None) -> QueryResponse:
-        """
-        Process a natural language question with user authentication and permissions
-        
-        Args:
-            request (QueryRequest): The user's question request
-            user (User, optional): Authenticated user for permission checking
-            
-        Returns:
-            QueryResponse: Complete response with answer, SQL, and metadata
-            
-        Raises:
-            PermissionError: If user lacks required permissions
-        """
-        question = request.question
-        
+        question = request.question.strip()
+        user_key = str(getattr(user, 'id', None) or getattr(user, 'email', None) or 'anonymous')
+
+        # handle context
+        prev_q = USER_CONTEXT.get(user_key, {}).get('last_question')
+        if prev_q and (question.startswith('ו') or ('לקוח' in prev_q and 'לקוח' not in question)):
+            effective_q = _resolve_followup(prev_q, question)
+        else:
+            effective_q = question
+
+        t0 = time.perf_counter()
+        timings = {}
+
         try:
-            logger.info(f"Processing question: {question}")
-            
-            # Step 1: Generate SQL from natural language question
-            logger.info("Generating SQL from question using AI...")
-            sql_result = await self._generate_sql(question)
-            
+            # 1️⃣ Generate SQL
+            t1 = time.perf_counter()
+            sql_result = await self._generate_sql(effective_q)
+            timings['sql_gen'] = (time.perf_counter() - t1) * 1000
+
             if not sql_result.get('success'):
-                return self._create_error_response(
-                    question=question,
-                    error_msg=sql_result.get('error', 'Unknown SQL generation error'),
-                    context="SQL generation failed"
-                )
-            
-            sql_query = sql_result.get('sql', '')
+                return self._error_response(question, sql_result.get('error', 'SQL generation failed'), "SQL")
+
+            sql_query = sql_result['sql']
             logger.info(f"Generated SQL: {sql_query}")
-            
-            # Step 2: Execute the generated SQL query
-            logger.info("Executing SQL query...")
+
+            # 2️⃣ Execute SQL
+            t2 = time.perf_counter()
             query_results = await self._execute_query(sql_query)
-            
+            timings['db_exec'] = (time.perf_counter() - t2) * 1000
+
             if not query_results.get('success'):
-                return self._create_error_response(
-                    question=question,
-                    error_msg=query_results.get('error', 'Unknown query execution error'),
-                    context="Query execution failed",
-                    sql=sql_query
-                )
-            
-            # Step 3: Create natural language response with actual data
-            logger.info("Creating natural language response with results...")
-            
-            # Get the actual data from query results
-            data = query_results.get('results', [])
+                return self._error_response(question, query_results.get('error', 'Query execution failed'), "DB", sql_query)
+
+            data = query_results['results']
             row_count = query_results.get('row_count', 0)
-            
-            # Create a meaningful answer based on the data
+
+            # 3️⃣ Generate answer
             if row_count == 0:
-                ai_answer = "לא נמצאו תוצאות עבור השאלה שלך."
-            elif len(data) == 1 and len(data[0]) == 1:
-                # Single number result (like COUNT)
-                number = list(data[0].values())[0]
-                if 'לקוח' in question:
-                    ai_answer = f"יש לך {number} לקוחות"
-                    if 'ירושלים' in question:
-                        ai_answer += " בירושלים"
-                    elif 'מודיעין' in question:
-                        ai_answer += " במודיעין עילית"
-                    elif any(city in question for city in ['תל אביב', 'חיפה', 'באר שבע']):
-                        city = next(city for city in ['תל אביב', 'חיפה', 'באר שבע'] if city in question)
-                        ai_answer += f" ב{city}"
-                else:
-                    ai_answer = f"התוצאה היא: {number}"
+                ai_answer = "לא נמצאו תוצאות לשאלה שלך."
             else:
-                # Multiple results - use AI to generate response
-                logger.info("Generating natural language response from complex results...")
+                # Always craft a natural-language sentence via AI, even for single-number results
+                t3 = time.perf_counter()
                 ai_answer = await self._generate_response(question, query_results)
-            
-            logger.info(f"Final answer: {ai_answer}")
-            logger.info("Question processed successfully")
-            
-            response = QueryResponse(
+                timings['answer_gen'] = (time.perf_counter() - t3) * 1000
+
+            USER_CONTEXT[user_key] = {'last_question': effective_q}
+
+            total_ms = (time.perf_counter() - t0) * 1000
+            timings['total'] = total_ms
+
+            return QueryResponse(
                 question=question,
                 answer=ai_answer,
                 sql=sql_query,
                 data=data,
-                error=None
+                error=None,
+                total_time_ms=total_ms,
+                timings_ms=timings
             )
-            logger.info(f"Final response: {response}")
-            return response
-            
-        except Exception as exc:
-            logger.error(f"Unexpected error processing question: {str(exc)}", exc_info=True)
-            return self._create_error_response(
-                question=question,
-                error_msg=f"אירעה שגיאה בלתי צפויה בעיבוד השאלה: {str(exc)}",
-                context="Unexpected system error"
-            )
-    
+
+        except Exception as e:
+            logger.exception("Unexpected error during question processing")
+            return self._error_response(question, str(e), "Unexpected")
+
     async def _generate_sql(self, question: str) -> Dict[str, Any]:
-        """
-        Generate SQL query from natural language question
-        
-        Args:
-            question (str): The user's question in Hebrew
-            
-        Returns:
-            Dict[str, Any]: Result with success status and SQL or error
-        """
         try:
             return self.ai_service.generate_sql(question)
-        except Exception as exc:
-            logger.error(f"Error in SQL generation: {str(exc)}")
-            return {
-                'success': False,
-                'error': f"שגיאה ביצירת שאילתת SQL: {str(exc)}"
-            }
-    
-    async def _execute_query(self, sql_query: str) -> Dict[str, Any]:
-        """
-        Execute SQL query against the database
-        
-        Args:
-            sql_query (str): The SQL query to execute
-            
-        Returns:
-            Dict[str, Any]: Result with success status and data or error
-        """
+        except Exception as e:
+            logger.error(f"SQL generation error: {e}")
+            return {'success': False, 'error': str(e)}
+
+    async def _execute_query(self, sql: str) -> Dict[str, Any]:
         try:
-            return self.ai_service.execute_query(sql_query)
-        except Exception as exc:
-            logger.error(f"Error in query execution: {str(exc)}")
-            return {
-                'success': False,
-                'error': f"שגיאה בביצוע השאילתה: {str(exc)}"
-            }
-    
-    async def _generate_response(self, question: str, query_results: Dict[str, Any]) -> str:
-        """
-        Generate natural language response from query results
-        
-        Args:
-            question (str): The original user question
-            query_results (Dict[str, Any]): Results from query execution
-            
-        Returns:
-            str: Natural language response in Hebrew
-        """
+            return self.ai_service.execute_query(sql)
+        except Exception as e:
+            logger.error(f"DB execution error: {e}")
+            return {'success': False, 'error': str(e)}
+
+    async def _generate_response(self, question: str, results: Dict[str, Any]) -> str:
         try:
-            return self.ai_service.generate_response(question, query_results)
-        except Exception as exc:
-            logger.error(f"Error in response generation: {str(exc)}")
-            # Fallback to basic response if AI fails
-            row_count = query_results.get('row_count', 0)
-            return f"מצאתי {row_count} תוצאות עבור השאלה שלך, אך אירעה שגיאה ביצירת התשובה המפורטת."
-    
-    def _create_error_response(
-        self, 
-        question: str, 
-        error_msg: str, 
-        context: str, 
-        sql: str = None
-    ) -> QueryResponse:
-        """
-        Create a standardized error response
-        
-        Args:
-            question (str): The original user question
-            error_msg (str): The error message to display
-            context (str): Context where the error occurred
-            sql (str, optional): The SQL query if available
-            
-        Returns:
-            QueryResponse: Formatted error response
-        """
-        logger.warning(f"Creating error response - Context: {context}, Error: {error_msg}")
-        
+            return self.ai_service.generate_response(question, results)
+        except Exception as e:
+            logger.error(f"Response generation error: {e}")
+            return f"נמצאו {results.get('row_count', 0)} תוצאות אך אירעה שגיאה ביצירת תשובה."
+
+    def _error_response(self, question: str, msg: str, context: str, sql: Optional[str] = None) -> QueryResponse:
+        logger.warning(f"Error [{context}]: {msg}")
         return QueryResponse(
             question=question,
-            answer=error_msg,
+            answer=f"שגיאה בעיבוד השאלה ({context}): {msg}",
             sql=sql,
-            error=error_msg
+            error=msg
         )
