@@ -19,6 +19,8 @@ Available Endpoints
 -------------------
 - GET  /              : Root endpoint with system info
 - POST /ask           : Main chatbot endpoint (authenticated)
+- POST /voice-query   : Voice chatbot endpoint (audio files, authenticated)
+- POST /ask-demo      : Demo chatbot endpoint (no authentication)
 - POST /auth/login    : User login
 - GET  /auth/me       : Get current user info
 - GET  /health        : Health check endpoint
@@ -29,12 +31,16 @@ Author: BI Chatbot Team
 Version: 3.0.0 - With Authentication
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional
 import os
+import tempfile
+import openai
 from dotenv import load_dotenv
 
 # Load environment variables (expects .env file)
@@ -74,17 +80,140 @@ app = FastAPI(
 # Enable CORS (update allow_origins for production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000", 
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "null"  # For file:// protocol
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Additional CORS handling for complex requests
+@app.middleware("http")
+async def cors_handler(request: Request, call_next):
+    # Handle preflight OPTIONS requests
+    if request.method == "OPTIONS":
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+        return Response(headers=headers)
+    
+    # Process the request
+    try:
+        response = await call_next(request)
+        
+        # Add CORS headers to response
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        
+        return response
+    except Exception as e:
+        # Return error with CORS headers
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(e)},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
 
 
 def get_openai_key() -> str:
     """Retrieve the OpenAI API key from environment variables"""
 
     return os.getenv("OPENAI_API_KEY", "api-key")
+
+
+async def transcribe_audio(audio_file: UploadFile) -> str:
+    """Transcribe audio file using OpenAI Whisper API
+    
+    Args:
+        audio_file: Uploaded audio file (MP3, WAV, etc.)
+        
+    Returns:
+        str: Transcribed text in Hebrew
+        
+    Raises:
+        HTTPException: If transcription fails
+    """
+    # Validate file type (be more flexible for WebM from browser)
+    valid_types = ['audio/', 'video/webm', 'video/mp4']  # WebM often shows as video/webm
+    if not audio_file.content_type or not any(audio_file.content_type.startswith(t) for t in valid_types):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type: {audio_file.content_type}. Please upload an audio file."
+        )
+    
+    # Validate file size (max 25MB for Whisper API)
+    max_size = 25 * 1024 * 1024  # 25MB
+    audio_content = await audio_file.read()
+    if len(audio_content) > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large. Maximum size is 25MB."
+        )
+    
+    try:
+        # Create temporary file for the audio with appropriate extension
+        file_extension = ".webm" if "webm" in audio_file.content_type else ".wav"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            temp_file.write(audio_content)
+            temp_file_path = temp_file.name
+        
+        # Configure OpenAI client
+        openai_api_key = get_openai_key()
+        if openai_api_key == "api-key":
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="OpenAI API key not configured"
+            )
+        
+        print(f"🎙️ Transcribing audio: {audio_file.filename}, Type: {audio_file.content_type}, Size: {len(audio_content)} bytes")
+        
+        client = openai.OpenAI(api_key=openai_api_key)
+        
+        # Transcribe audio using Whisper
+        with open(temp_file_path, "rb") as audio_data:
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_data,
+                language="he"  # Hebrew language code
+            )
+        
+        # Clean up temporary file
+        os.unlink(temp_file_path)
+        
+        transcribed_text = transcript.text.strip()
+        print(f"✅ Transcription successful: '{transcribed_text}'")
+        
+        if not transcribed_text:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Could not transcribe audio. Please ensure the audio contains clear speech."
+            )
+        
+        return transcribed_text
+        
+    except Exception as e:
+        # Clean up temporary file if it exists
+        if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
+            os.unlink(temp_file_path)
+        
+        if isinstance(e, HTTPException):
+            raise
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Audio transcription failed: {str(e)}"
+        )
 
 
 @app.on_event("startup")
@@ -113,6 +242,7 @@ def root():
         "openai_configured": get_openai_key() != "api-key",
         "endpoints": {
             "chat": "/ask (authenticated)",
+            "voice_chat": "/voice-query (authenticated, audio files)",
             "chat_demo": "/ask-demo (no auth)",
             "login": "/api/v1/auth/login",
             "user_info": "/api/v1/auth/me", 
@@ -121,9 +251,9 @@ def root():
             "api_v1": "/api/v1",
         },
         "demo_users": {
-            "admin": "david.cohen@company.com / 123456",
-            "sales_manager": "sarah.levi@company.com / 123456",
-            "sales": "michael.abramovich@company.com / 123456"
+            "admin": "nech397@gmail.com / 1123456",
+            "sales_manager": "sarah.levi@company.com / 1123456",
+            "sales": "michael.abramovich@company.com / 1123456"
         }
     }
 
@@ -153,8 +283,47 @@ async def ask_question_demo(
     
     chatbot_service = ChatbotService(db)
     # Use admin user for demo
-    admin_user = user_db.get_user_by_email("david.cohen@company.com")
+    admin_user = user_db.get_user_by_email("nech397@gmail.com")
     return await chatbot_service.process_question(request, user=admin_user)
+
+
+@app.post("/voice-query", response_model=QueryResponse, tags=["Chatbot"])
+async def voice_query(
+    audio_file: UploadFile = File(..., description="Audio file (MP3, WAV, etc.) to transcribe"),
+    current_user: User = Depends(verify_token),
+    db: Session = Depends(get_db)
+) -> QueryResponse:
+    """Process a voice question by transcribing audio and analyzing the text
+    
+    This endpoint:
+    1. Receives an audio file (MP3, WAV, etc.)
+    2. Transcribes it to Hebrew text using OpenAI Whisper
+    3. Processes the transcribed text using the same logic as /ask endpoint
+    4. Returns the same response format with additional transcription info
+    
+    Requires valid JWT token in Authorization header.
+    User permissions are checked before processing the question.
+    Maximum file size: 25MB
+    """
+    
+    # print(f"🎙️ Voice query received from user: {current_user.username}")
+    print(f"📁 Audio file: {audio_file.filename}, Content-Type: {audio_file.content_type}")
+    
+    # Step 1: Transcribe the audio file
+    transcribed_text = await transcribe_audio(audio_file)
+    
+    # Step 2: Create a QueryRequest with the transcribed text
+    query_request = QueryRequest(question=transcribed_text)
+    
+    # Step 3: Process the question using existing chatbot service
+    chatbot_service = ChatbotService(db)
+    response = await chatbot_service.process_question(query_request, user=current_user)
+    
+    # Step 4: Add transcription info to response (modify answer to include it)
+    if response.error is None:
+        response.answer = f"🎙️ תמלול: \"{transcribed_text}\"\n\n{response.answer}"
+    
+    return response
 
 
 @app.get("/health", tags=["System"])

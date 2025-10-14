@@ -15,7 +15,7 @@ aiosqlite==0.18.0
 psycopg2-binary==2.9.3
 
 # AI & NLP
-openai==0.27.5
+openai>=1.0.0
 spacy==3.5.3
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.5.0/en_core_web_sm-3.5.0-py3-none-any.whl
 hebrew-nlp @ git+https://github.com/avilum/hebrew-nlp.git

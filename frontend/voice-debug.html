@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בדיקת זיהוי קולי - שלב אחר שלב</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .step.success { border-color: #28a745; background: #d4edda; }
+        .step.error { border-color: #dc3545; background: #f8d7da; }
+        .step.testing { border-color: #ffc107; background: #fff3cd; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+        }
+        .btn-primary { background: #007bff; }
+        .btn-success { background: #28a745; }
+        .btn-danger { background: #dc3545; }
+        .btn-warning { background: #ffc107; color: black; }
+        .log {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            font-size: 14px;
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 בדיקת זיהוי קולי - שלב אחר שלב</h1>
+        
+        <!-- Step 1: Server Connection -->
+        <div id="step1" class="step">
+            <h3>שלב 1: חיבור לשרת API</h3>
+            <p>בודק אם השרת API זמין...</p>
+            <button class="btn-primary" onclick="testServerConnection()">בדוק חיבור</button>
+            <div id="server-result"></div>
+        </div>
+
+        <!-- Step 2: Authentication -->
+        <div id="step2" class="step">
+            <h3>שלב 2: אימות</h3>
+            <input type="text" id="username" placeholder="שם משתמש" value="test_user">
+            <input type="password" id="password" placeholder="סיסמה" value="test_password">
+            <button class="btn-primary" onclick="testLogin()">התחבר</button>
+            <div id="auth-result"></div>
+        </div>
+
+        <!-- Step 3: Microphone Access -->
+        <div id="step3" class="step">
+            <h3>שלב 3: גישה למיקרופון</h3>
+            <button class="btn-primary" onclick="testMicrophone()">בדוק מיקרופון</button>
+            <div id="mic-result"></div>
+        </div>
+
+        <!-- Step 4: Recording Test -->
+        <div id="step4" class="step">
+            <h3>שלב 4: בדיקת הקלטה</h3>
+            <button class="btn-success" id="recordBtn" onclick="toggleRecording()">התחל הקלטה</button>
+            <div id="recording-result"></div>
+        </div>
+
+        <!-- Step 5: Voice Query Test -->
+        <div id="step5" class="step">
+            <h3>שלב 5: שליחת שאילתה קולית</h3>
+            <p>ישלח את ההקלטה האחרונה לשרת</p>
+            <button class="btn-warning" onclick="testVoiceQuery()" disabled id="sendBtn">שלח שאילתה קולית</button>
+            <div id="voice-result"></div>
+        </div>
+
+        <!-- Debug Log -->
+        <div class="step">
+            <h3>לוג דיבאג</h3>
+            <button class="btn-danger" onclick="clearLog()">נקה לוג</button>
+            <div id="debugLog" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let isRecording = false;
+        let lastAudioBlob = null;
+        
+        const API_URL = 'http://localhost:8002';
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('debugLog');
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLog() {
+            document.getElementById('debugLog').textContent = '';
+        }
+        
+        function setStepStatus(stepId, status, message) {
+            const step = document.getElementById(stepId);
+            step.className = `step ${status}`;
+            if (message) {
+                const resultDiv = step.querySelector('[id$="-result"]');
+                if (resultDiv) {
+                    resultDiv.innerHTML = `<p>${message}</p>`;
+                }
+            }
+        }
+        
+        // Step 1: Test Server Connection
+        async function testServerConnection() {
+            log('🔍 בודק חיבור לשרת...');
+            setStepStatus('step1', 'testing', 'בודק...');
+            
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ שרת מחובר בהצלחה');
+                    setStepStatus('step1', 'success', 'השרת זמין ופועל');
+                    return true;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                log(`❌ שגיאה בחיבור לשרת: ${error.message}`);
+                setStepStatus('step1', 'error', `שגיאה: ${error.message}`);
+                return false;
+            }
+        }
+        
+        // Step 2: Test Authentication
+        async function testLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            log(`🔐 מנסה להתחבר עם המשתמש: ${username}`);
+            setStepStatus('step2', 'testing', 'מתחבר...');
+            
+            try {
+                const response = await fetch(`${API_URL}/token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.access_token;
+                    log('✅ התחברות הצליחה');
+                    setStepStatus('step2', 'success', 'אומת בהצלחה');
+                    return true;
+                } else {
+                    const errorText = await response.text();
+                    throw new Error(`${response.status}: ${errorText}`);
+                }
+            } catch (error) {
+                log(`❌ שגיאה בהתחברות: ${error.message}`);
+                setStepStatus('step2', 'error', `שגיאה: ${error.message}`);
+                return false;
+            }
+        }
+        
+        // Step 3: Test Microphone Access
+        async function testMicrophone() {
+            log('🎤 בודק גישה למיקרופון...');
+            setStepStatus('step3', 'testing', 'מבקש הרשאה...');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 44100,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+                
+                log('✅ גישה למיקרופון התקבלה');
+                setStepStatus('step3', 'success', 'מיקרופון זמין');
+                
+                // Stop the stream
+                stream.getTracks().forEach(track => track.stop());
+                return true;
+            } catch (error) {
+                log(`❌ שגיאה בגישה למיקרופון: ${error.message}`);
+                setStepStatus('step3', 'error', `שגיאה: ${error.message}`);
+                return false;
+            }
+        }
+        
+        // Step 4: Test Recording
+        async function toggleRecording() {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                await stopRecording();
+            }
+        }
+        
+        async function startRecording() {
+            log('🎵 מתחיל הקלטה...');
+            setStepStatus('step4', 'testing', 'מקליט...');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Check available MIME types
+                const supportedTypes = [
+                    'audio/webm;codecs=opus',
+                    'audio/webm',
+                    'audio/mp4',
+                    'audio/wav'
+                ];
+                
+                let mimeType = 'audio/webm';
+                for (const type of supportedTypes) {
+                    if (MediaRecorder.isTypeSupported(type)) {
+                        mimeType = type;
+                        break;
+                    }
+                }
+                
+                log(`🎵 משתמש ב-MIME type: ${mimeType}`);
+                
+                mediaRecorder = new MediaRecorder(stream, { mimeType });
+                recordedChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    log(`📊 התקבל chunk: ${event.data.size} bytes`);
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    log('🛑 הקלטה הופסקה');
+                    lastAudioBlob = new Blob(recordedChunks, { type: mimeType });
+                    log(`🎵 נוצר audio blob: ${lastAudioBlob.size} bytes, type: ${lastAudioBlob.type}`);
+                    
+                    setStepStatus('step4', 'success', `הקלטה הושלמה: ${lastAudioBlob.size} bytes`);
+                    document.getElementById('sendBtn').disabled = false;
+                    
+                    // Stop stream
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                mediaRecorder.onerror = (event) => {
+                    log(`❌ שגיאה בהקלטה: ${event.error}`);
+                    setStepStatus('step4', 'error', `שגיאה: ${event.error}`);
+                };
+                
+                mediaRecorder.start(1000); // Record in 1-second chunks
+                isRecording = true;
+                
+                document.getElementById('recordBtn').textContent = '⏹️ עצור הקלטה';
+                log('✅ הקלטה החלה');
+                
+            } catch (error) {
+                log(`❌ שגיאה בהתחלת הקלטה: ${error.message}`);
+                setStepStatus('step4', 'error', `שגיאה: ${error.message}`);
+            }
+        }
+        
+        async function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                document.getElementById('recordBtn').textContent = '🎤 התחל הקלטה';
+            }
+        }
+        
+        // Step 5: Test Voice Query
+        async function testVoiceQuery() {
+            if (!authToken) {
+                log('❌ אין טוקן אימות - יש להתחבר תחילה');
+                setStepStatus('step5', 'error', 'יש להתחבר תחילה');
+                return;
+            }
+            
+            if (!lastAudioBlob) {
+                log('❌ אין הקלטה - יש להקליט תחילה');
+                setStepStatus('step5', 'error', 'יש להקליט תחילה');
+                return;
+            }
+            
+            log('📤 שולח שאילתה קולית...');
+            setStepStatus('step5', 'testing', 'שולח...');
+            
+            try {
+                const formData = new FormData();
+                formData.append('audio_file', lastAudioBlob, 'recording.webm');
+                
+                log(`📦 FormData נוצר עם קובץ: ${lastAudioBlob.size} bytes`);
+                
+                const response = await fetch(`${API_URL}/voice-query`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+                
+                log(`📥 תשובה התקבלה: ${response.status} ${response.statusText}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ שאילתה קולית הצליחה');
+                    log(`🎯 שאלה שזוהתה: "${data.question}"`);
+                    setStepStatus('step5', 'success', `זוהה: "${data.question}"`);
+                    
+                    // Show full response
+                    const resultDiv = document.getElementById('voice-result');
+                    resultDiv.innerHTML += `
+                        <div style="margin-top: 10px; padding: 10px; background: #e9ecef; border-radius: 5px;">
+                            <strong>תשובה מלאה:</strong><br>
+                            <strong>שאלה:</strong> ${data.question}<br>
+                            <strong>SQL:</strong> <code>${data.sql_query}</code><br>
+                            <strong>תוצאות:</strong> ${data.results ? data.results.length : 0} רשומות
+                        </div>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    log(`❌ שגיאה בשאילתה קולית: ${response.status} ${errorText}`);
+                    setStepStatus('step5', 'error', `${response.status}: ${errorText}`);
+                }
+            } catch (error) {
+                log(`❌ שגיאה בשליחת בקשה: ${error.message}`);
+                setStepStatus('step5', 'error', `שגיאה: ${error.message}`);
+            }
+        }
+        
+        // Auto-test server connection on load
+        window.onload = function() {
+            log('🚀 דף בדיקה נטען');
+            testServerConnection();
+        };
+    </script>
+</body>
+</html>

@@ -80,8 +80,8 @@ def seed_sample_customers(db):
     from app.models.customer import Customer
 
     sample_customers = [
-        {"name": "שרה כהן", "city": "מודיעין עילית", "created_at": "2024-05-01"},
-        {"name": "דוד לוי", "city": "ירושלים", "created_at": "2024-06-10"},
+        {"name": "שרה ובר", "city": "מודיעין עילית", "created_at": "2024-05-01"},
+        {"name": "נחמי לוי", "city": "ירושלים", "created_at": "2024-06-10"},
         {"name": "רבקה פרידמן", "city": "מודיעין עילית", "created_at": "2024-07-15"},
         {"name": "אברהם יצחק", "city": "בני ברק", "created_at": "2024-07-20"},
         {"name": "משה כץ", "city": "מודיעין עילית", "created_at": "2024-08-01"},
