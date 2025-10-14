@@ -39,11 +39,11 @@ class UserDatabase:
         # Sample Hebrew users with different permission groups
         sample_users = [
             {
-                "first_name": "דוד",
-                "last_name": "כהן", 
-                "phone": "050-1234567",
-                "email": "david.cohen@company.com",
-                "password": "123456",
+                "first_name": "נחמי",
+                "last_name": "ובר", 
+                "phone": "055-6745397",
+                "email": "nech397@gmail.com",
+                "password": "1123456",
                 "is_manager": True,
                 "permission_group": "admin"
             },
@@ -52,7 +52,7 @@ class UserDatabase:
                 "last_name": "לוי",
                 "phone": "052-2345678", 
                 "email": "sarah.levi@company.com",
-                "password": "123456",
+                "password": "1123456",
                 "is_manager": True,
                 "permission_group": "sales_manager"
             },
@@ -61,7 +61,7 @@ class UserDatabase:
                 "last_name": "אברמוביץ",
                 "phone": "053-3456789",
                 "email": "michael.abramovich@company.com", 
-                "password": "123456",
+                "password": "1123456",
                 "is_manager": False,
                 "permission_group": "sales"
             },
@@ -70,7 +70,7 @@ class UserDatabase:
                 "last_name": "שמואלי",
                 "phone": "054-4567890",
                 "email": "rachel.shmueli@company.com",
-                "password": "123456", 
+                "password": "1123456", 
                 "is_manager": False,
                 "permission_group": "marketing"
             },
@@ -79,7 +79,7 @@ class UserDatabase:
                 "last_name": "רוזנברג",
                 "phone": "055-5678901",
                 "email": "yosef.rosenberg@company.com",
-                "password": "123456",
+                "password": "1123456",
                 "is_manager": False,
                 "permission_group": "finance"
             },
@@ -88,7 +88,7 @@ class UserDatabase:
                 "last_name": "גולדשטיין", 
                 "phone": "056-6789012",
                 "email": "miriam.goldstein@company.com",
-                "password": "123456",
+                "password": "1123456",
                 "is_manager": False,
                 "permission_group": "readonly"
             }

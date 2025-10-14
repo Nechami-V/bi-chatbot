@@ -60,7 +60,7 @@ class ChatbotService:
         timings = {}
 
         try:
-            # 1️⃣ Generate SQL
+            # Generate SQL
             t1 = time.perf_counter()
             sql_result = await self._generate_sql(effective_q)
             timings['sql_gen'] = (time.perf_counter() - t1) * 1000
@@ -71,7 +71,7 @@ class ChatbotService:
             sql_query = sql_result['sql']
             logger.info(f"Generated SQL: {sql_query}")
 
-            # 2️⃣ Execute SQL
+            # Execute SQL
             t2 = time.perf_counter()
             query_results = await self._execute_query(sql_query)
             timings['db_exec'] = (time.perf_counter() - t2) * 1000
@@ -82,7 +82,7 @@ class ChatbotService:
             data = query_results['results']
             row_count = query_results.get('row_count', 0)
 
-            # 3️⃣ Generate answer
+            # Generate answer
             if row_count == 0:
                 ai_answer = "לא נמצאו תוצאות לשאלה שלך."
             else:

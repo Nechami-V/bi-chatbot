@@ -7,6 +7,11 @@ class BiChatbot {
         this.authToken = null;
         this.userInfo = null;
         
+        // Voice recording variables
+        this.mediaRecorder = null;
+        this.recordedChunks = [];
+        this.isRecording = false;
+        
         // DOM Elements
         this.elements = {
             chatMessages: document.getElementById('chatMessages'),
@@ -20,15 +25,14 @@ class BiChatbot {
             welcomeText: document.getElementById('welcomeText'),
             userName: document.getElementById('userName'),
             userRole: document.getElementById('userRole'),
-            userAvatar: document.getElementById('userAvatar')
+            userAvatar: document.getElementById('userAvatar'),
+            voiceBtn: document.getElementById('voiceBtn')
         };
         
         this.init();
     }
     
     init() {
-        console.log('🚀 KT BI Chatbot initialized');
-        
         // Check authentication first
         this.checkAuthentication();
         
@@ -460,6 +464,122 @@ BiChatbot.prototype.logout = function() {
     window.location.href = 'login.html';
 };
 
+// Voice recording functions
+BiChatbot.prototype.toggleRecording = async function() {
+    if (!this.authToken) {
+        this.showToast('יש להתחבר תחילה', 'error');
+        return;
+    }
+    
+    if (!this.isRecording) {
+        await this.startRecording();
+    } else {
+        await this.stopRecording();
+    }
+};
+
+BiChatbot.prototype.startRecording = async function() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.mediaRecorder = new MediaRecorder(stream);
+        this.recordedChunks = [];
+        
+        this.mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                this.recordedChunks.push(event.data);
+            }
+        };
+        
+        this.mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(this.recordedChunks, { type: 'audio/webm' });
+            await this.sendVoiceQuery(audioBlob);
+        };
+        
+        this.mediaRecorder.start();
+        this.isRecording = true;
+        
+        // Update UI
+        this.elements.voiceBtn.innerHTML = '<i class="fas fa-stop"></i>';
+        this.elements.voiceBtn.classList.add('recording');
+        this.elements.statusIndicator.innerHTML = '<i class="fas fa-circle"></i> מקליט...';
+        
+    } catch (error) {
+        console.error('Microphone error:', error);
+        this.showToast('שגיאה בגישה למיקרופון: ' + error.message, 'error');
+    }
+};
+
+BiChatbot.prototype.stopRecording = async function() {
+    if (this.mediaRecorder && this.isRecording) {
+        this.mediaRecorder.stop();
+        this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        this.isRecording = false;
+        
+        // Update UI
+        this.elements.voiceBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+        this.elements.voiceBtn.classList.remove('recording');
+        this.elements.statusIndicator.innerHTML = '<i class="fas fa-circle"></i> מעבד...';
+    }
+};
+
+BiChatbot.prototype.sendVoiceQuery = async function(audioBlob) {
+    this.setLoading(true);
+    
+    try {
+        const formData = new FormData();
+        formData.append('audio_file', audioBlob, 'recording.webm');
+        
+        const response = await fetch(`${this.apiUrl}/voice-query`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.authToken}`
+            },
+            body: formData
+        });
+        
+        if (!response.ok) {
+            let errorMessage = 'שגיאה בשליחת השאילתה הקולית';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.detail || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+            } catch (parseError) {
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            }
+            throw new Error(errorMessage);
+        }
+        
+        const data = await response.json();
+        
+        // Add voice query message to chat
+        this.addMessage(data.question, 'user');
+        
+        // Process the response
+        this.processResponse(data);
+        
+        // Reset status
+        this.elements.statusIndicator.innerHTML = '<i class="fas fa-circle"></i> מוכן לשאלות';
+        
+    } catch (error) {
+        console.error('Voice query error:', error);
+        let errorMessage = 'שגיאה לא ידועה';
+        
+        if (error instanceof Error) {
+            errorMessage = error.message;
+        } else if (typeof error === 'string') {
+            errorMessage = error;
+        } else if (error && error.message) {
+            errorMessage = error.message;
+        } else if (error && error.detail) {
+            errorMessage = error.detail;
+        }
+        
+        this.showToast('שגיאה בשליחת השאילתה הקולית: ' + errorMessage, 'error');
+        this.elements.statusIndicator.innerHTML = '<i class="fas fa-circle"></i> מוכן לשאלות';
+    } finally {
+        this.setLoading(false);
+    }
+};
+
 // Global logout function
 function handleLogout() {
     if (window.chatbot) {
@@ -470,10 +590,16 @@ function handleLogout() {
     }
 }
 
+// Global voice recording function
+function toggleRecording() {
+    if (window.chatbot) {
+        window.chatbot.toggleRecording();
+    }
+}
+
 // Service worker registration (for future PWA capabilities)
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        console.log('📱 Service Worker support detected');
         // Future: Register service worker for offline capabilities
     });
 }
