@@ -1,7 +1,7 @@
 # Core
 fastapi==0.95.0
 uvicorn[standard]==0.21.1
-python-multipart==0.0.6
+python-multipart==0.0.20
 python-dotenv==1.0.0
 pydantic[email]==1.10.7
 

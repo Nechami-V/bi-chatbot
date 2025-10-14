@@ -51,10 +51,11 @@ from app.db.database import init_db, get_db
 from app.services.chatbot_service import ChatbotService
 from app.services.user_service import user_db
 
-# Import API versioned routes
-from app.api.v1.routes import router as v1_router
-from app.api.v1.auth_routes import router as auth_router
-from app.api.main_routes import router as main_router
+# Import API routes
+from app.api.system import router as system_router
+from app.api.chat import router as chat_router
+from app.api.voice import router as voice_router
+from app.api.auth import router as auth_router
 
 
 app = FastAPI(
@@ -129,9 +130,10 @@ async def startup_event() -> None:
 
 
 # Mount all API routes
-app.include_router(main_router, tags=["Main"])
-app.include_router(v1_router, prefix="/api/v1", tags=["API v1"])
-app.include_router(auth_router, prefix="/api/v1", tags=["Authentication"])
+app.include_router(system_router, tags=["System"])
+app.include_router(chat_router, tags=["Chat"])
+app.include_router(voice_router, tags=["Voice"])
+app.include_router(auth_router, tags=["Authentication"])
 
 
 if __name__ == "__main__":
