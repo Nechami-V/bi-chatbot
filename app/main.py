@@ -301,7 +301,6 @@ async def voice_query(
     Maximum file size: 25MB
     """
     
-    # print(f"🎙️ Voice query received from user: {current_user.username}")
     # Step 1: Transcribe the audio file
     transcribed_text = await transcribe_audio(audio_file)
     
