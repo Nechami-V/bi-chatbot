@@ -1,5 +1,5 @@
 // Login Script for KT BI Chatbot
-const API_BASE = 'http://localhost:8002';
+const API_BASE = 'http://localhost:8000';
 
 // DOM Elements
 const loginForm = document.getElementById('loginForm');
