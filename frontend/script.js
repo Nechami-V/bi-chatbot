@@ -33,8 +33,6 @@ class BiChatbot {
     }
     
     init() {
-        console.log('🚀 KT BI Chatbot initialized');
-        
         // Check authentication first
         this.checkAuthentication();
         
@@ -401,14 +399,7 @@ BiChatbot.prototype.checkAuthentication = function() {
     const token = localStorage.getItem('authToken');
     const userInfo = localStorage.getItem('userInfo');
     
-    console.log('🔐 Checking authentication:', {
-        hasToken: !!token,
-        hasUserInfo: !!userInfo,
-        tokenLength: token ? token.length : 0
-    });
-    
     if (!token || !userInfo) {
-        console.log('❌ Missing authentication data, redirecting to login');
         // Redirect to login
         window.location.href = 'login.html';
         return;
@@ -475,10 +466,7 @@ BiChatbot.prototype.logout = function() {
 
 // Voice recording functions
 BiChatbot.prototype.toggleRecording = async function() {
-    console.log('🎤 Toggle recording called, authToken:', this.authToken ? 'EXISTS' : 'NULL');
-    
     if (!this.authToken) {
-        console.error('❌ No auth token available');
         this.showToast('יש להתחבר תחילה', 'error');
         return;
     }
@@ -510,8 +498,6 @@ BiChatbot.prototype.startRecording = async function() {
         this.mediaRecorder.start();
         this.isRecording = true;
         
-        console.log('🎤 Recording started');
-        
         // Update UI
         this.elements.voiceBtn.innerHTML = '<i class="fas fa-stop"></i>';
         this.elements.voiceBtn.classList.add('recording');
@@ -539,24 +525,9 @@ BiChatbot.prototype.stopRecording = async function() {
 BiChatbot.prototype.sendVoiceQuery = async function(audioBlob) {
     this.setLoading(true);
     
-    console.log('🎙️ Sending voice query:', {
-        size: audioBlob.size,
-        type: audioBlob.type,
-        authToken: this.authToken ? 'Present' : 'Missing',
-        apiUrl: this.apiUrl
-    });
-    
     try {
-        debugger;
         const formData = new FormData();
         formData.append('audio_file', audioBlob, 'recording.webm');
-        
-        console.log('📤 Making fetch request to:', `${this.apiUrl}/voice-query`);
-        console.log('📤 Request headers:', { 'Authorization': `Bearer ${this.authToken}` });
-        console.log('📤 FormData entries:');
-        for (let [key, value] of formData.entries()) {
-            console.log(`  ${key}:`, value instanceof Blob ? `Blob(${value.size} bytes, ${value.type})` : value);
-        }
         
         const response = await fetch(`${this.apiUrl}/voice-query`, {
             method: 'POST',
@@ -565,8 +536,6 @@ BiChatbot.prototype.sendVoiceQuery = async function(audioBlob) {
             },
             body: formData
         });
-        
-        console.log('📥 Response received:', response.status, response.statusText);
         
         if (!response.ok) {
             let errorMessage = 'שגיאה בשליחת השאילתה הקולית';
@@ -631,7 +600,6 @@ function toggleRecording() {
 // Service worker registration (for future PWA capabilities)
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        console.log('📱 Service Worker support detected');
         // Future: Register service worker for offline capabilities
     });
 }

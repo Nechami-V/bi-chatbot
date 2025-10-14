@@ -176,8 +176,6 @@ async def transcribe_audio(audio_file: UploadFile) -> str:
                 detail="OpenAI API key not configured"
             )
         
-        print(f"🎙️ Transcribing audio: {audio_file.filename}, Type: {audio_file.content_type}, Size: {len(audio_content)} bytes")
-        
         client = openai.OpenAI(api_key=openai_api_key)
         
         # Transcribe audio using Whisper
@@ -192,7 +190,6 @@ async def transcribe_audio(audio_file: UploadFile) -> str:
         os.unlink(temp_file_path)
         
         transcribed_text = transcript.text.strip()
-        print(f"✅ Transcription successful: '{transcribed_text}'")
         
         if not transcribed_text:
             raise HTTPException(
@@ -220,9 +217,7 @@ async def transcribe_audio(audio_file: UploadFile) -> str:
 async def startup_event() -> None:
     """Run initialization tasks when the API starts"""
 
-    print("🚀 BI Chatbot API starting...")
     init_db()
-    print("✅ Initialization complete")
 
 
 # Mount versioned API routes
@@ -307,8 +302,6 @@ async def voice_query(
     """
     
     # print(f"🎙️ Voice query received from user: {current_user.username}")
-    print(f"📁 Audio file: {audio_file.filename}, Content-Type: {audio_file.content_type}")
-    
     # Step 1: Transcribe the audio file
     transcribed_text = await transcribe_audio(audio_file)
     
