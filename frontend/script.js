@@ -1,7 +1,7 @@
 // KT BI Chatbot Frontend - Modern JavaScript Implementation with Authentication
 class BiChatbot {
     constructor() {
-        this.apiUrl = 'http://localhost:8000';
+        this.apiUrl = 'http://localhost:8002';
         this.isLoading = false;
         this.messageCount = 0;
         this.authToken = null;
@@ -115,7 +115,7 @@ class BiChatbot {
         } catch (error) {
             console.error('API Connection failed:', error);
             this.updateStatus('שגיאה בחיבור לשרת', 'error');
-            this.showToast('לא ניתן להתחבר לשרת. בדוק שהשרת רץ על localhost:8000', 'error');
+            this.showToast('לא ניתן להתחבר לשרת. בדוק שהשרת רץ על localhost:8002', 'error');
         }
     }
     
@@ -554,7 +554,7 @@ BiChatbot.prototype.sendVoiceQuery = async function(audioBlob) {
         this.addMessage(data.question, 'user');
         
         // Process the response
-        this.processResponse(data);
+        this.addBotResponse(data);
         
         // Reset status
         this.elements.statusIndicator.innerHTML = '<i class="fas fa-circle"></i> מוכן לשאלות';
