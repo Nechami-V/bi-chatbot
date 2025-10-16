@@ -103,88 +103,56 @@ class AIService:
 
     def generate_sql(self, question: str) -> Dict[str, Any]:
         start_time = time.perf_counter()
-        # Rule-based fast path for very common intents to avoid LLM latency
-        shortcut = self._rule_sql_shortcut(question)
-        if shortcut:
-            total = time.perf_counter() - start_time
-            shortcut['duration_sec'] = total
-            return shortcut
-        attempts = max(1, getattr(config, "OPENAI_MAX_RETRIES", 3))
+
+        # REMOVE: any city shortcut usage
+        # shortcut = self._rule_sql_shortcut(question)
+        # if shortcut: ...
+
+        prompt = self._build_sql_prompt(question)
         last_raw = None
-        last_error = None
-        # Try fastest/shortest first: select-only -> soft -> strict JSON
-        modes = ["select", "soft", "strict"]
+        try:
+            t0 = time.perf_counter()
+            response = self._call_openai_for_sql(prompt)
+            elapsed = time.perf_counter() - t0
+            logger.info(f"SQL generation via OpenAI took {elapsed:.2f} seconds")
+            last_raw = response
 
-        for i in range(min(attempts, len(modes))):
-            mode = modes[i]
-            try:
-                t0 = time.perf_counter()
-                if mode == "select":
-                    prompt = self._build_select_prompt(question)
-                else:
-                    prompt = self._build_sql_prompt(question)
-                    if mode == "strict":
-                        prompt += "\nReturn only valid JSON in a single line, no explanations, no code fences, no extra text."
+            parsed = self._parse_sql_response(response)
+            if parsed.get("success") and (parsed.get("sql") or "").strip():
+                total = time.perf_counter() - start_time
+                parsed["duration_sec"] = total
+                logger.info(f"✅ Full SQL generation succeeded in {total:.2f} seconds")
+                return parsed
 
-                logger.info(f"Generating SQL (mode={mode}, attempt {i+1}/{attempts})")
-                response = self._call_openai_for_sql(prompt, mode=mode)
-                elapsed = time.perf_counter() - t0
-                logger.info(f"SQL generation via OpenAI took {elapsed:.2f} seconds")
-
-                last_raw = response
-
-                if mode == "select":
-                    select_sql = self._extract_select_sql(response)
-                    if select_sql:
-                        total = time.perf_counter() - start_time
-                        return {
-                            "success": True,
-                            "sql": select_sql,
-                            "tables": [],
-                            "description": "SELECT extracted from model response",
-                            "raw_response": response,
-                            "error": None,
-                            "duration_sec": total,
-                        }
-                    last_error = "No valid SELECT found in select-mode response"
-                    continue
-
-                parsed = self._parse_sql_response(response)
-                if parsed.get("success") and (parsed.get("sql") or "").strip():
-                    total = time.perf_counter() - start_time
-                    parsed["duration_sec"] = total
-                    logger.info(f"✅ Full SQL generation succeeded in {total:.2f} seconds")
-                    return parsed
-
-                last_error = parsed.get("error") or "Empty SQL after parse"
-
-            except Exception as e:
-                last_error = str(e)
-                logger.warning(f"SQL generation attempt (mode={mode}) failed: {last_error}")
-                continue
+            error = parsed.get("error") or "Empty SQL after parse"
+        except Exception as e:
+            error = str(e)
 
         total = time.perf_counter() - start_time
-        logger.error(f"❌ SQL generation failed after {total:.2f} seconds. Error: {last_error}")
+        logger.error(f"❌ SQL generation failed after {total:.2f} seconds. Error: {error}")
         return {
             "success": False,
-            "error": last_error or "SQL generation returned empty result",
+            "error": error or "SQL generation returned empty result",
             "sql": "",
             "tables": [],
             "description": "",
             "raw_response": last_raw,
             "duration_sec": total,
         }
-
     def _build_sql_prompt(self, question: str) -> str:
         tables_summary = self._select_relevant_tables(question)
-        schema_brief = json.dumps(tables_summary, ensure_ascii=False)
+        schema_brief = json.dumps({"tables": tables_summary}, ensure_ascii=False)
         return (
             f"{self.system_prompt}\n"
-            "Convert Hebrew question to valid SQL for SQLite. Use column names as-is. Join only if necessary. Avoid unsupported functions. Return JSON in a single line.\n"
+            "Convert the following Hebrew BI question into accurate, minimal **STANDARD SQL** "
+            "(not SQLite-specific). Use only tables/columns that appear in SCHEMA. "
+            "Use JOIN/COUNT/SUM/AVG/MAX/MIN/GROUP BY as needed. "
+            "Return **JSON in a single line only**, no extra text, no code fences.\n"
             f"SCHEMA: {schema_brief}\n"
-            f"QUESTION: {question}\n"
-            'JSON: {"sql":"...","tables":["..."],"description":"..."}'
+            f"QUESTION (Hebrew): {question}\n"
+            'JSON (single-line): {"sql":"...","tables":["..."],"description":"..."}'
         )
+
 
     def _build_select_prompt(self, question: str) -> str:
         tables_summary = self._select_relevant_tables(question)
@@ -198,34 +166,11 @@ class AIService:
         )
     
     def _select_relevant_tables(self, question: str) -> Dict[str, List[str]]:
-        """Heuristically filter schema tables/columns based on Hebrew keywords in the question."""
-        q = (question or "").lower()
-        want_clients = any(k in q for k in ["לקוח", "לקוחות", "עיר"])  # customers/city
-        want_orders  = any(k in q for k in ["מכירה", "מכירות", "הזמנה", "סכום", "סה""כ", "sum"]) 
-        want_items   = any(k in q for k in ["פריט", "מוצר"]) 
-        want_sales   = any(k in q for k in ["week", "שבוע", "שם", "name"]) 
-
-        tables = {}
-        def add_table(tname: str):
-            meta = self.schema_info.get("tables", {}).get(tname)
-            if not meta:
-                return
-            tables[tname] = [c["name"] for c in meta.get("columns", [])]
-
-        if want_clients:
-            add_table("ClientsBot2025")
-        if want_orders:
-            add_table("OrdersBot2025")
-        if want_items:
-            add_table("ItemsBot2025")
-        if want_sales:
-            add_table("SalesBot2025")
-
-        # Fallback: include all if nothing matched
-        if not tables:
-            for tname, meta in self.schema_info.get("tables", {}).items():
-                tables[tname] = [c["name"] for c in meta.get("columns", [])]
-        return tables
+    # Send full schema every time (table → column names)
+        return {
+            tname: [c["name"] for c in meta.get("columns", [])]
+            for tname, meta in self.schema_info.get("tables", {}).items()
+        }
 
     def _call_openai_for_sql(self, prompt: str, mode: str = "strict") -> str:
         sql_tokens = min(256, getattr(config, "MAX_TOKENS", 1000))
@@ -233,12 +178,20 @@ class AIService:
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": prompt},
         ]
+        logger.info(f"Sending to OpenAI - Prompt: {prompt[:200]}...")
         response = self.client.chat.completions.create(
             model=config.OPENAI_MODEL,
             messages=messages,
             max_completion_tokens=sql_tokens,
         )
-        return response.choices[0].message.content
+        ai_content = response.choices[0].message.content
+        logger.info(f"OpenAI returned: {ai_content}")
+        
+        if not ai_content or not ai_content.strip():
+            logger.error("OpenAI returned empty response!")
+            return '{"sql":"","tables":[],"description":"","error":"Empty response from OpenAI"}'
+        
+        return ai_content
 
     def _rule_sql_shortcut(self, question: str) -> Optional[Dict[str, Any]]:
         """Heuristic shortcuts: handle 'כמה לקוחות' with/without city without calling LLM.
@@ -333,6 +286,7 @@ class AIService:
         return candidate
 
     def _parse_sql_response(self, content: str) -> Dict[str, Any]:
+        logger.info(f"Parsing AI response: {content}")
         try:
             result = json.loads(content)
             sql_text = (result.get("sql") or "").strip()
@@ -345,8 +299,8 @@ class AIService:
                 "raw_response": content,
                 "error": None if success else "Empty SQL in JSON response",
             }
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse JSON response, trying JSON block or SELECT")
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse JSON response: {e}. Raw response: {content[:200]}...")
             json_block = self._extract_json_block(content)
             if json_block:
                 try:
@@ -362,7 +316,7 @@ class AIService:
                         "error": None if success else "Empty SQL in extracted JSON",
                     }
                 except Exception as inner:
-                    logger.warning(f"Extracted JSON block failed: {inner}")
+                    logger.warning(f"Extracted JSON block failed: {inner}. JSON block: {json_block[:100]}...")
             select_sql = self._extract_select_sql(content)
             if select_sql:
                 return {
@@ -373,36 +327,33 @@ class AIService:
                     "raw_response": content,
                     "error": None,
                 }
+            logger.error(f"Unable to parse response. Content length: {len(content) if content else 0}. First 100 chars: {content[:100] if content else 'None'}")
             return {
                 "success": False,
                 "sql": "",
                 "tables": [],
                 "description": "",
                 "raw_response": content,
-                "error": "Unable to parse or extract SQL from model response",
+                "error": f"Unable to parse or extract SQL from model response. Content: {content[:200] if content else 'Empty'}",
             }
 
-    def execute_query(self, sql: str) -> Dict[str, Any]:
+    def execute_query(self, sql: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         start_time = time.perf_counter()
         try:
-            logger.debug(f"Executing SQL: {sql}")
-            result = self.db.execute(text(sql))
+            logger.debug(f"Executing SQL: {sql} | params={params or {}}")
+            result = self.db.execute(text(sql), params or {})
             if sql.strip().lower().startswith("select"):
                 columns = result.keys()
                 rows = [dict(zip(columns, row)) for row in result.fetchall()]
                 elapsed = time.perf_counter() - start_time
-                logger.info(f"✅ Query executed in {elapsed:.2f} sec, {len(rows)} rows returned")
                 return {"success": True, "results": rows, "row_count": len(rows), "duration_sec": elapsed}
             else:
                 self.db.commit()
                 elapsed = time.perf_counter() - start_time
-                logger.info(f"✅ Non-SELECT query executed in {elapsed:.2f} sec")
                 return {"success": True, "row_count": result.rowcount, "message": f"Query executed in {elapsed:.2f} sec", "duration_sec": elapsed}
         except Exception as e:
-            elapsed = time.perf_counter() - start_time
-            logger.error(f"❌ Query failed after {elapsed:.2f} sec: {str(e)}")
             self.db.rollback()
-            return {"success": False, "error": str(e), "duration_sec": elapsed}
+            return {"success": False, "error": str(e), "duration_sec": time.perf_counter() - start_time}
 
     def generate_response(self, question: str, query_results: Dict[str, Any]) -> str:
         start_time = time.perf_counter()
@@ -410,16 +361,21 @@ class AIService:
             sample = query_results.get("results", [])[:1]
             columns = list(sample[0].keys()) if sample else []
             prompt = (
-                "כתוב משפט אחד קצר, ברור ותמציתי בעברית, שמובן גם למי שלא ראה את השאלה. "
-                "המשפט חייב להיות עצמאי ולציין במפורש את הנושא המרכזי (למשל מספר הלקוחות/שם העיר/השבוע), ואת הערכים מתוך הנתונים. "
-                "אין להשתמש בטבלאות, אין להשתמש בקוד, ואין להחזיר יותר ממשפט אחד.\n"
-                f"השאלה: {question}\n"
-                f"עמודות: {json.dumps(columns, ensure_ascii=False)}\n"
-                f"דוגמה נתונים: {json.dumps(sample, ensure_ascii=False, default=str)}\n"
-                "דוגמאות לסגנון ניסוח: \n"
-                "- אם מדובר בספירת לקוחות כללית: 'מספר הלקוחות הכולל הוא 1,234.'\n"
-                "- אם מדובר בעיר מסוימת: 'בעיר חיפה יש 1,137 לקוחות.'\n"
-                "- אם מדובר בשבוע: 'בשבוע 12 נמכרו 980 יחידות.'\n"
+                "Write exactly one short, clear, self-contained sentence in Hebrew that summarizes the main result. "
+                "Respond in Hebrew only. Do not include code, lists, quotes, or multiple sentences. "
+                "Explicitly mention the main business entity (e.g., customers, total sales, order count, product, week) "
+                "and include the concrete values from the data (use numerals; apply thousands separators if appropriate). "
+                "Do not write generic phrases like 'נמצאו X תוצאות' or 'הנתונים מצביעים על'; be specific and data-grounded.\n"
+                f"Question (Hebrew): {question}\n"
+                f"Columns: {json.dumps(columns, ensure_ascii=False)}\n"
+                f"Sample data (first row only): {json.dumps(sample, ensure_ascii=False, default=str)}\n"
+                "Examples of phrasing style (do not copy verbatim):\n"
+                "- For a total customer count: מספר הלקוחות הכולל הוא 1,234.\n"
+                "- For a specific city: בעיר חיפה יש 1,137 לקוחות.\n"
+                "- For weekly sales: בשבוע 12 נמכרו 980 יחידות.\n"
+                "- For total orders: בוצעו 245 הזמנות חדשות.\n"
+                "- For product performance: המוצר הנמכר ביותר הוא חולצת כותנה עם 512 יחידות.\n"
+                "If there are zero rows, return a single Hebrew sentence stating that no results were found for the question."
             )
             ans_tokens = min(160, getattr(config, "MAX_TOKENS", 1000))
             try:

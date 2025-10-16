@@ -1,5 +1,5 @@
 // Login Script for KT BI Chatbot
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'http://localhost:8002';
 
 // DOM Elements
 const loginForm = document.getElementById('loginForm');
@@ -38,7 +38,7 @@ async function handleLogin(e) {
     hideError();
     
     try {
-        const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+        const response = await fetch(`${API_BASE}/auth/login`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -81,7 +81,7 @@ async function handleLogin(e) {
 // Get user info after login
 async function getUserInfo(token) {
     try {
-        const response = await fetch(`${API_BASE}/api/v1/auth/me`, {
+        const response = await fetch(`${API_BASE}/auth/me`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
