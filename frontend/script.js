@@ -603,3 +603,80 @@ if ('serviceWorker' in navigator) {
         // Future: Register service worker for offline capabilities
     });
 }
+
+// ========================================
+// NEW SIDEBAR FEATURES
+// ========================================
+
+// Show "Feature in Development" message
+function showFeatureInDevelopment() {
+    const toast = document.getElementById('toast');
+    const toastMessage = toast.querySelector('.toast-message');
+    
+    toastMessage.textContent = '🚧 בפיתוח';
+    toast.classList.add('show', 'warning');
+    
+    setTimeout(() => {
+        toast.classList.remove('show', 'warning');
+    }, 2000);
+}
+
+// Initialize sample chart
+function initSampleChart() {
+    const canvas = document.getElementById('sampleChart');
+    if (!canvas || typeof Chart === 'undefined') {
+        console.warn('Chart.js not loaded or canvas not found');
+        return;
+    }
+    
+    // Create pie chart with Chart.js
+    new Chart(canvas, {
+        type: 'pie',
+        data: {
+            labels: ['מכירות', 'הזמנות', 'לקוחות', 'מוצרים'],
+            datasets: [{
+                data: [30, 25, 20, 25],
+                backgroundColor: [
+                    '#7C3AED', // Purple
+                    '#F59E0B', // Yellow/Orange
+                    '#4F46E5', // Blue
+                    '#10B981'  // Green
+                ],
+                borderColor: '#ffffff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    rtl: true,
+                    labels: {
+                        font: {
+                            family: 'Assistant',
+                            size: 11
+                        },
+                        padding: 8,
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                title: {
+                    display: false,
+                },
+                tooltip: {
+                    rtl: true,
+                    textDirection: 'rtl'
+                }
+            }
+        }
+    });
+}
+
+// Initialize on page load
+window.addEventListener('DOMContentLoaded', () => {
+    initSampleChart();
+});

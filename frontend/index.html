@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -39,8 +40,10 @@
             </div>
         </header>
 
-        <!-- Main Chat Container -->
-        <main class="chat-container">
+        <!-- Main Content Area with Sidebar -->
+        <div class="main-wrapper">
+            <!-- Main Chat Container -->
+            <main class="chat-container">
             <div class="chat-messages" id="chatMessages">
                 <!-- Welcome message will be added dynamically -->
                 <div class="message bot-message welcome" id="welcomeMessage">
@@ -86,16 +89,59 @@
                     </div>
                 </form>
             </div>
+
+            <!-- Loading Overlay -->
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="loading-spinner">
+                    <i class="fas fa-cog fa-spin"></i>
+                    <p>מעבד את השאלה...</p>
+                </div>
+            </div>
         </main>
 
-        <!-- Loading Overlay -->
-        <div class="loading-overlay" id="loadingOverlay">
-            <div class="loading-spinner">
-                <i class="fas fa-cog fa-spin"></i>
-                <p>מעבד את השאלה...</p>
-            </div>
-        </div>
-    </div>
+            <!-- Right Sidebar -->
+            <aside class="sidebar">
+                <!-- Graph Section -->
+                <div class="sidebar-section graph-section">
+                    <div class="graph-header">
+                        <button class="graph-type-btn" onclick="showFeatureInDevelopment()">
+                            <i class="fas fa-chart-bar"></i> סוגי גרפים
+                        </button>
+                    </div>
+                    <div class="graph-container">
+                        <canvas id="sampleChart" width="250" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- Feature Buttons -->
+                <div class="sidebar-section features-section">
+                    <h3>כפתורים</h3>
+                    <div class="feature-grid">
+                        <button class="feature-btn" onclick="showFeatureInDevelopment()">
+                            <i class="fas fa-chart-line"></i>
+                            <span>חזאי</span>
+                        </button>
+                        <button class="feature-btn" onclick="showFeatureInDevelopment()">
+                            <i class="fas fa-file-export"></i>
+                            <span>ייצוא לאקסל</span>
+                        </button>
+                        <button class="feature-btn" onclick="showFeatureInDevelopment()">
+                            <i class="fas fa-file-import"></i>
+                            <span>ייבוא לאקסל</span>
+                        </button>
+                        <button class="feature-btn" onclick="showFeatureInDevelopment()">
+                            <i class="fas fa-lightbulb"></i>
+                            <span>תובנות</span>
+                        </button>
+                        <button class="feature-btn" onclick="showFeatureInDevelopment()">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>קביעת זכות דחות שמורים</span>
+                        </button>
+                    </div>
+                </div>
+            </aside>
+        </div> <!-- End main-wrapper -->
+    </div> <!-- End app-container -->
 
     <!-- Success/Error Toast -->
     <div class="toast" id="toast">
