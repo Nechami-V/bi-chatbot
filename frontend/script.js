@@ -170,9 +170,22 @@ class BiChatbot {
         
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${type}-message`;
+        
+        let avatarHtml = '';
+        if (type === 'user') {
+            // User initials
+            const initials = this.userInfo && this.userInfo.user 
+                ? this.getUserInitials(this.userInfo.user.first_name, this.userInfo.user.last_name)
+                : '??';
+            avatarHtml = initials;
+        } else {
+            // Bot KT logo
+            avatarHtml = '<img src="assets/kt-logo.png" alt="KT Bot">';
+        }
+        
         messageDiv.innerHTML = `
             <div class="message-avatar">
-                <i class="fas fa-${type === 'user' ? 'user' : 'robot'}"></i>
+                ${avatarHtml}
             </div>
             <div class="message-content">
                 <p>${this.escapeHtml(content)}</p>
@@ -233,7 +246,7 @@ class BiChatbot {
         
         messageDiv.innerHTML = `
             <div class="message-avatar">
-                <i class="fas fa-robot"></i>
+                <img src="assets/kt-logo.png" alt="KT Bot">
             </div>
             <div class="message-content">
                 ${content}

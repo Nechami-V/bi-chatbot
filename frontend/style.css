@@ -85,7 +85,7 @@ body {
 .header-content {
     max-width: 1200px;
     margin: 0 auto;
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: calc(var(--spacing-md) / 2) var(--spacing-lg);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -99,20 +99,20 @@ body {
 
 /* Logo Image Styling */
 .logo-image {
-    width: 50px;
-    height: 50px;
+    width: 35px;
+    height: 35px;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
 }
 
 .brand-info h1 {
-    font-size: 1.5rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0;
 }
 
 .brand-info p {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     color: var(--text-secondary);
     margin: 0;
 }
@@ -131,8 +131,8 @@ body {
 }
 
 .user-avatar {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: var(--kt-green);
     color: white;
@@ -140,7 +140,7 @@ body {
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 12px;
 }
 
 .user-details {
@@ -253,13 +253,22 @@ body {
 }
 
 .bot-message .message-avatar {
-    background: var(--primary-color);
+    background: transparent;
     color: white;
+    padding: 0;
+}
+
+.bot-message .message-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 }
 
 .user-message .message-avatar {
-    background: var(--secondary-color);
+    background: var(--kt-green);
     color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
 .message-content {
@@ -445,28 +454,41 @@ body {
     50% { opacity: 0.5; }
 }
 
-/* Loading Overlay - Only covers chat area */
+/* Loading Overlay - Covers entire screen */
 .loading-overlay {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
     display: none;
     align-items: center;
     justify-content: center;
-    z-index: 100;
+    z-index: 9999;
     border-radius: 0;
 }
 
 .loading-spinner {
     background: var(--surface);
-    padding: var(--spacing-lg);
+    padding: var(--spacing-xl);
     border-radius: var(--radius-lg);
     text-align: center;
     box-shadow: var(--shadow-lg);
-    max-width: 200px;
+    min-width: 200px;
+}
+
+.loading-spinner i {
+    font-size: 3rem;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-md);
+}
+
+.loading-spinner p {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text-primary);
+    font-weight: 500;
 }
 
 .loading-spinner i {

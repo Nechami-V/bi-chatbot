@@ -48,7 +48,7 @@
                 <!-- Welcome message will be added dynamically -->
                 <div class="message bot-message welcome" id="welcomeMessage">
                     <div class="message-avatar">
-                        <i class="fas fa-robot"></i>
+                        <img src="assets/kt-logo.png" alt="KT Bot">
                     </div>
                     <div class="message-content">
                         <p id="welcomeText"><strong>שלום!</strong> אני הצ'אט בוט שלך לניתוח נתונים עסקיים.</p>
@@ -89,14 +89,6 @@
                     </div>
                 </form>
             </div>
-
-            <!-- Loading Overlay -->
-            <div class="loading-overlay" id="loadingOverlay">
-                <div class="loading-spinner">
-                    <i class="fas fa-cog fa-spin"></i>
-                    <p>מעבד את השאלה...</p>
-                </div>
-            </div>
         </main>
 
             <!-- Right Sidebar -->
@@ -127,7 +119,7 @@
                         </button>
                         <button class="feature-btn" onclick="showFeatureInDevelopment()">
                             <i class="fas fa-file-import"></i>
-                            <span>ייבוא לאקסל</span>
+                            <span>יצוא לCSV</span>
                         </button>
                         <button class="feature-btn" onclick="showFeatureInDevelopment()">
                             <i class="fas fa-lightbulb"></i>
@@ -142,6 +134,14 @@
             </aside>
         </div> <!-- End main-wrapper -->
     </div> <!-- End app-container -->
+
+    <!-- Loading Overlay - Full Screen -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <i class="fas fa-cog fa-spin"></i>
+            <p>מעבד את השאלה...</p>
+        </div>
+    </div>
 
     <!-- Success/Error Toast -->
     <div class="toast" id="toast">

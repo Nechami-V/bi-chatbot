@@ -140,30 +140,32 @@ class AIService:
             "duration_sec": total,
         }
     def _build_sql_prompt(self, question: str) -> str:
+        db = "SQLite"
         tables_summary = self._select_relevant_tables(question)
         schema_brief = json.dumps({"tables": tables_summary}, ensure_ascii=False)
-        return (
-            f"{self.system_prompt}\n"
-            "Convert the following Hebrew BI question into accurate, minimal **STANDARD SQL** "
-            "(not SQLite-specific). Use only tables/columns that appear in SCHEMA. "
-            "Use JOIN/COUNT/SUM/AVG/MAX/MIN/GROUP BY as needed. "
-            "Return **JSON in a single line only**, no extra text, no code fences.\n"
-            f"SCHEMA: {schema_brief}\n"
-            f"QUESTION (Hebrew): {question}\n"
-            'JSON (single-line): {"sql":"...","tables":["..."],"description":"..."}'
+        return  (
+                f"Translate the following Hebrew business question into one valid and optimized SQL SELECT query for {db}. "
+                "Use only the table and column names exactly as they appear in the provided SCHEMA. "
+                "Use JOINs only when they are truly necessary. "
+                "Do not invent tables or columns that do not exist in the SCHEMA. "
+                "Return only the SQL query itself — no explanations, no comments, no markdown, and no extra text.\n\n"
+                f"SCHEMA: {schema_brief}\n"
+                f"QUESTION (Hebrew): {question}\n\n"
+                "Output: SQL query only."
         )
 
 
-    def _build_select_prompt(self, question: str) -> str:
-        tables_summary = self._select_relevant_tables(question)
-        schema_brief = json.dumps(tables_summary, ensure_ascii=False)
-        return (
-            f"{self.system_prompt}\n"
-            "Convert Hebrew question to a single valid SELECT SQL for SQLite. Use column names as-is. Join only if necessary. Return only SQL, no extra text.\n"
-            f"SCHEMA: {schema_brief}\n"
-            f"QUESTION: {question}\n"
-            "SELECT ONLY"
-        )
+
+    # def _build_select_prompt(self, question: str) -> str:
+    #     tables_summary = self._select_relevant_tables(question)
+    #     schema_brief = json.dumps(tables_summary, ensure_ascii=False)
+    #     return (
+    #         f"{self.system_prompt}\n"
+    #         "Convert Hebrew question to a single valid SELECT SQL for SQLite. Use column names as-is. Join only if necessary. Return only SQL, no extra text.\n"
+    #         f"SCHEMA: {schema_brief}\n"
+    #         f"QUESTION: {question}\n"
+    #         "SELECT ONLY"
+    #     )
     
     def _select_relevant_tables(self, question: str) -> Dict[str, List[str]]:
     # Send full schema every time (table → column names)
@@ -480,48 +482,84 @@ class AIService:
         return city or None
 
     def _format_explicit_answer(self, question: str, query_results: Dict[str, Any]) -> Optional[str]:
-        """Return a clear, self-contained Hebrew sentence for common result shapes.
-        Especially for customer counts overall or by city.
         """
-        rows = query_results.get("results", []) or []
-        rc = query_results.get("row_count", 0)
+        Generate a natural-language answer in English using OpenAI:
+        - If no results: return "No results found."
+        - Otherwise: send the question and summarized query results (JSON) to OpenAI
+        to generate a clear, short, human-readable answer.
+        Notes:
+        - Requires environment variable OPENAI_API_KEY
+        - Uses self.nlg_model or OPENAI_NLG_MODEL (default: gpt-4o-mini)
+        """
+        import json
+
+        rows = query_results.get("results") or []
+        rc = query_results.get("row_count", len(rows) if isinstance(rows, list) else 0)
+
         if rc == 0:
-            return "לא נמצאו תוצאות."
-        if rc >= 1:
-            row = rows[0]
-            cols = [str(c).lower() for c in row.keys()]
-            # Common count column names
-            count_cols = [
-                "customer_count", "total_customers", "count", "cnt", "מספר_לקוחות", "ספירת_לקוחות"
-            ]
-            # Try find a count-like column
-            count_col = None
-            for c in cols:
-                if any(c == k or k in c for k in count_cols):
-                    count_col = c
-                    break
-            if count_col:
-                n = row[[k for k in row.keys() if k.lower() == count_col][0]]
-                # Try city from data first, then from question
-                city_key = None
-                for ck in ["city", "עיר"]:
-                    if ck in cols:
-                        city_key = [k for k in row.keys() if k.lower() == ck][0]
-                        break
-                city = row.get(city_key) if city_key else self._extract_city_from_question(question)
-                if city:
-                    return f"בעיר {city} יש {n} לקוחות."
-                return f"מספר הלקוחות הכולל הוא {n}."
+            return "No results found."
 
-            # If single numeric cell overall
-            if len(row) == 1:
-                val = list(row.values())[0]
-                # If question mentions לקוחות
-                if "לקוח" in (question or "") or "לקוחות" in (question or ""):
-                    city = self._extract_city_from_question(question)
-                    if city:
-                        return f"בעיר {city} יש {val} לקוחות."
-                    return f"מספר הלקוחות הכולל הוא {val}."
-                return f"התוצאה היא {val}."
+        # Safely convert each row to a dictionary (works for SQLAlchemy Row objects as well)
+        def row_to_dict(r):
+            if isinstance(r, dict):
+                return r
+            try:
+                return dict(r)
+            except Exception:
+                try:
+                    return {k: r[k] for k in r.keys()}
+                except Exception:
+                    return {"value": str(r)}
 
-        return None
+        # Limit number of preview rows to keep the prompt short
+        max_rows = 5
+        preview_rows = [row_to_dict(r) for r in rows[:max_rows]]
+
+        compact_context = {
+            "row_count": rc,
+            "preview": preview_rows,
+        }
+
+        # Build the OpenAI prompt
+        user_prompt = (
+            "You are a professional BI assistant. Based only on the SQL query results provided below "
+            "in JSON format, generate a short and accurate Hebrew sentence that clearly answers the user’s question. "
+            "Avoid technical terms, do not add data that doesn’t exist in the results, and be concise. "
+            "If results are ambiguous or incomplete, phrase the response carefully (e.g., 'at least X'). "
+            "After the main answer, add one short and natural follow-up question in Hebrew that encourages the user "
+            "to continue exploring the data — for example, suggesting a forecast, breakdown, or trend analysis. "
+            "The follow-up must be relevant to the topic of the question.\n\n"
+            f"Question: \"{question}\"\n"
+            f"Query Results (JSON): {json.dumps(compact_context, ensure_ascii=False)}"
+            "Return only the Hebrew text (answer + follow-up question)."
+        )
+
+        try:
+            # Send request to OpenAI
+            import os
+            from openai import OpenAI
+
+            client = getattr(self, "openai_client", None) or OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            model = getattr(self, "nlg_model", os.getenv("OPENAI_NLG_MODEL", "gpt-4o-mini"))
+
+            completion = client.chat.completions.create(
+                model=model,
+                temperature=0.2,
+                messages=[
+                    {"role": "system", "content": "You are a clear, concise, and professional BI report summarizer."},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+
+            text = completion.choices[0].message.content.strip()
+            return text or None
+
+        except Exception:
+            # Graceful fallback: basic text representation of results
+            try:
+                if len(preview_rows) == 1 and len(preview_rows[0]) == 1:
+                    val = next(iter(preview_rows[0].values()))
+                    return f"The result is {val}."
+                return f"Example results: {json.dumps(preview_rows, ensure_ascii=False)}"
+            except Exception:
+                return "Unable to generate a natural-language answer from the results."
