@@ -145,6 +145,7 @@ class AIService:
         return (
             f"{self.system_prompt}\n"
             "Convert the following Hebrew BI question into accurate, minimal **STANDARD SQL** "
+            "Use SQLite syntax for date filtering (use strftime('%Y', col) etc.)."
             "(not SQLite-specific). Use only tables/columns that appear in SCHEMA. "
             "Use JOIN/COUNT/SUM/AVG/MAX/MIN/GROUP BY as needed. "
             "Return **JSON in a single line only**, no extra text, no code fences.\n"
@@ -172,6 +173,27 @@ class AIService:
             for tname, meta in self.schema_info.get("tables", {}).items()
         }
 
+    # def _call_openai_for_sql(self, prompt: str, mode: str = "strict") -> str:
+    #     sql_tokens = min(256, getattr(config, "MAX_TOKENS", 1000))
+    #     messages = [
+    #         {"role": "system", "content": self.system_prompt},
+    #         {"role": "user", "content": prompt},
+    #     ]
+    #     logger.info(f"Sending to OpenAI - Prompt: {prompt[:200]}...")
+    #     response = self.client.chat.completions.create(
+    #         model=config.OPENAI_MODEL,
+    #         messages=messages,
+    #         max_completion_tokens=sql_tokens,
+    #     )
+    #     ai_content = response.choices[0].message.content
+    #     logger.info(f"OpenAI returned: {ai_content}")
+        
+    #     if not ai_content or not ai_content.strip():
+    #         logger.error("OpenAI returned empty response!")
+    #         return '{"sql":"","tables":[],"description":"","error":"Empty response from OpenAI"}'
+        
+    #     return ai_content
+
     def _call_openai_for_sql(self, prompt: str, mode: str = "strict") -> str:
         sql_tokens = min(256, getattr(config, "MAX_TOKENS", 1000))
         messages = [
@@ -179,19 +201,17 @@ class AIService:
             {"role": "user", "content": prompt},
         ]
         logger.info(f"Sending to OpenAI - Prompt: {prompt[:200]}...")
+
         response = self.client.chat.completions.create(
             model=config.OPENAI_MODEL,
             messages=messages,
             max_completion_tokens=sql_tokens,
         )
+
         ai_content = response.choices[0].message.content
         logger.info(f"OpenAI returned: {ai_content}")
-        
-        if not ai_content or not ai_content.strip():
-            logger.error("OpenAI returned empty response!")
-            return '{"sql":"","tables":[],"description":"","error":"Empty response from OpenAI"}'
-        
-        return ai_content
+        return ai_content or '{"sql":"","tables":[],"description":"","error":"Empty response from OpenAI"}'
+
 
     def _rule_sql_shortcut(self, question: str) -> Optional[Dict[str, Any]]:
         """Heuristic shortcuts: handle 'כמה לקוחות' with/without city without calling LLM.
