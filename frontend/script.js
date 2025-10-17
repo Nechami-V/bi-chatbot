@@ -170,9 +170,22 @@ class BiChatbot {
         
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${type}-message`;
+        
+        let avatarHtml = '';
+        if (type === 'user') {
+            // User initials
+            const initials = this.userInfo && this.userInfo.user 
+                ? this.getUserInitials(this.userInfo.user.first_name, this.userInfo.user.last_name)
+                : '??';
+            avatarHtml = initials;
+        } else {
+            // Bot KT logo
+            avatarHtml = '<img src="assets/kt-logo.png" alt="KT Bot">';
+        }
+        
         messageDiv.innerHTML = `
             <div class="message-avatar">
-                <i class="fas fa-${type === 'user' ? 'user' : 'robot'}"></i>
+                ${avatarHtml}
             </div>
             <div class="message-content">
                 <p>${this.escapeHtml(content)}</p>
@@ -233,7 +246,7 @@ class BiChatbot {
         
         messageDiv.innerHTML = `
             <div class="message-avatar">
-                <i class="fas fa-robot"></i>
+                <img src="assets/kt-logo.png" alt="KT Bot">
             </div>
             <div class="message-content">
                 ${content}
@@ -603,3 +616,80 @@ if ('serviceWorker' in navigator) {
         // Future: Register service worker for offline capabilities
     });
 }
+
+// ========================================
+// NEW SIDEBAR FEATURES
+// ========================================
+
+// Show "Feature in Development" message
+function showFeatureInDevelopment() {
+    const toast = document.getElementById('toast');
+    const toastMessage = toast.querySelector('.toast-message');
+    
+    toastMessage.textContent = '🚧 בפיתוח';
+    toast.classList.add('show', 'warning');
+    
+    setTimeout(() => {
+        toast.classList.remove('show', 'warning');
+    }, 2000);
+}
+
+// Initialize sample chart
+function initSampleChart() {
+    const canvas = document.getElementById('sampleChart');
+    if (!canvas || typeof Chart === 'undefined') {
+        console.warn('Chart.js not loaded or canvas not found');
+        return;
+    }
+    
+    // Create pie chart with Chart.js
+    new Chart(canvas, {
+        type: 'pie',
+        data: {
+            labels: ['מכירות', 'הזמנות', 'לקוחות', 'מוצרים'],
+            datasets: [{
+                data: [30, 25, 20, 25],
+                backgroundColor: [
+                    '#7C3AED', // Purple
+                    '#F59E0B', // Yellow/Orange
+                    '#4F46E5', // Blue
+                    '#10B981'  // Green
+                ],
+                borderColor: '#ffffff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    rtl: true,
+                    labels: {
+                        font: {
+                            family: 'Assistant',
+                            size: 11
+                        },
+                        padding: 8,
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                title: {
+                    display: false,
+                },
+                tooltip: {
+                    rtl: true,
+                    textDirection: 'rtl'
+                }
+            }
+        }
+    });
+}
+
+// Initialize on page load
+window.addEventListener('DOMContentLoaded', () => {
+    initSampleChart();
+});
