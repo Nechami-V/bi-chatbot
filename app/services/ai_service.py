@@ -101,14 +101,20 @@ class AIService:
 
         return schema
 
-    def generate_sql(self, question: str) -> Dict[str, Any]:
+    def generate_sql(self, question: str, context_block: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Generate SQL query from natural language question.
+        
+        Args:
+            question: User's question in Hebrew
+            context_block: Optional compact context for follow-up questions
+            
+        Returns:
+            Dict with success, sql, and optional error
+        """
         start_time = time.perf_counter()
 
-        # REMOVE: any city shortcut usage
-        # shortcut = self._rule_sql_shortcut(question)
-        # if shortcut: ...
-
-        prompt = self._build_sql_prompt(question)
+        prompt = self._build_sql_prompt(question, context_block)
         last_raw = None
         try:
             t0 = time.perf_counter()
@@ -139,20 +145,40 @@ class AIService:
             "raw_response": last_raw,
             "duration_sec": total,
         }
-    def _build_sql_prompt(self, question: str) -> str:
+    def _build_sql_prompt(self, question: str, context_block: Optional[str] = None) -> str:
+        """
+        Build SQL generation prompt with optional follow-up context.
+        
+        Args:
+            question: User's question in Hebrew
+            context_block: Optional compact context for follow-up questions
+            
+        Returns:
+            Formatted prompt string
+        """
         db = "SQLite"
         tables_summary = self._select_relevant_tables(question)
         schema_brief = json.dumps({"tables": tables_summary}, ensure_ascii=False)
-        return  (
-                f"Translate the following Hebrew business question into one valid and optimized SQL SELECT query for {db}. "
-                "Use only the table and column names exactly as they appear in the provided SCHEMA. "
-                "Use JOINs only when they are truly necessary. "
-                "Do not invent tables or columns that do not exist in the SCHEMA. "
-                "Return only the SQL query itself — no explanations, no comments, no markdown, and no extra text.\n\n"
-                f"SCHEMA: {schema_brief}\n"
-                f"QUESTION (Hebrew): {question}\n\n"
-                "Output: SQL query only."
+        
+        base_prompt = (
+            f"Translate the following Hebrew business question into one valid and optimized SQL SELECT query for {db}. "
+            "Use only the table and column names exactly as they appear in the provided SCHEMA. "
+            "Use JOINs only when they are truly necessary. "
+            "Do not invent tables or columns that do not exist in the SCHEMA. "
+            "Return only the SQL query itself — no explanations, no comments, no markdown, and no extra text.\n\n"
+            f"SCHEMA: {schema_brief}\n"
         )
+        
+        # Inject context block if this is a follow-up
+        if context_block:
+            base_prompt += f"\n{context_block}\n\n"
+        
+        base_prompt += (
+            f"QUESTION (Hebrew): {question}\n\n"
+            "Output: SQL query only."
+        )
+        
+        return base_prompt
 
 
 
@@ -357,17 +383,36 @@ class AIService:
             self.db.rollback()
             return {"success": False, "error": str(e), "duration_sec": time.perf_counter() - start_time}
 
-    def generate_response(self, question: str, query_results: Dict[str, Any]) -> str:
+    def generate_response(self, question: str, query_results: Dict[str, Any], context_block: Optional[str] = None) -> str:
+        """
+        Generate natural language response in Hebrew.
+        
+        Args:
+            question: User's question in Hebrew
+            query_results: Query execution results
+            context_block: Optional compact context for follow-up questions
+            
+        Returns:
+            Natural language answer in Hebrew
+        """
         start_time = time.perf_counter()
         try:
             sample = query_results.get("results", [])[:1]
             columns = list(sample[0].keys()) if sample else []
-            prompt = (
+            
+            base_prompt = (
                 "Write exactly one short, clear, self-contained sentence in Hebrew that summarizes the main result. "
                 "Respond in Hebrew only. Do not include code, lists, quotes, or multiple sentences. "
                 "Explicitly mention the main business entity (e.g., customers, total sales, order count, product, week) "
                 "and include the concrete values from the data (use numerals; apply thousands separators if appropriate). "
                 "Do not write generic phrases like 'נמצאו X תוצאות' or 'הנתונים מצביעים על'; be specific and data-grounded.\n"
+            )
+            
+            # Inject context block if this is a follow-up
+            if context_block:
+                base_prompt += f"\n{context_block}\n\n"
+            
+            base_prompt += (
                 f"Question (Hebrew): {question}\n"
                 f"Columns: {json.dumps(columns, ensure_ascii=False)}\n"
                 f"Sample data (first row only): {json.dumps(sample, ensure_ascii=False, default=str)}\n"
@@ -379,13 +424,14 @@ class AIService:
                 "- For product performance: המוצר הנמכר ביותר הוא חולצת כותנה עם 512 יחידות.\n"
                 "If there are zero rows, return a single Hebrew sentence stating that no results were found for the question."
             )
+            
             ans_tokens = min(160, getattr(config, "MAX_TOKENS", 1000))
             try:
                 response = self.client.chat.completions.create(
                     model=config.OPENAI_MODEL,
                     messages=[
                         {"role": "system", "content": "You produce exactly one concise sentence in Hebrew that is fully self-contained and understandable without seeing the question. Return only the sentence, no lists, no code."},
-                        {"role": "user", "content": prompt},
+                        {"role": "user", "content": base_prompt},
                     ],
                     max_completion_tokens=ans_tokens,
                 )
