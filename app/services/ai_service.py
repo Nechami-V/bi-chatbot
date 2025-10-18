@@ -180,21 +180,8 @@ class AIService:
         
         return base_prompt
 
-
-
-    # def _build_select_prompt(self, question: str) -> str:
-    #     tables_summary = self._select_relevant_tables(question)
-    #     schema_brief = json.dumps(tables_summary, ensure_ascii=False)
-    #     return (
-    #         f"{self.system_prompt}\n"
-    #         "Convert Hebrew question to a single valid SELECT SQL for SQLite. Use column names as-is. Join only if necessary. Return only SQL, no extra text.\n"
-    #         f"SCHEMA: {schema_brief}\n"
-    #         f"QUESTION: {question}\n"
-    #         "SELECT ONLY"
-    #     )
-    
     def _select_relevant_tables(self, question: str) -> Dict[str, List[str]]:
-    # Send full schema every time (table → column names)
+        """Send full schema every time (table → column names)"""
         return {
             tname: [c["name"] for c in meta.get("columns", [])]
             for tname, meta in self.schema_info.get("tables", {}).items()

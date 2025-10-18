@@ -31,25 +31,17 @@ Author: BI Chatbot Team
 Version: 3.0.0 - With Authentication
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
-from typing import Optional
-import os
-import tempfile
-import openai
 from dotenv import load_dotenv
 
 # Load environment variables (expects .env file)
 load_dotenv()
 
 # Import database utilities and services
-from app.db.database import init_db, get_db
-from app.services.chatbot_service import ChatbotService
-from app.services.user_service import user_db
+from app.db.database import init_db
 
 # Import API routes
 from app.api.system import router as system_router
