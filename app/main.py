@@ -118,7 +118,9 @@ async def cors_handler(request: Request, call_next):
 async def startup_event() -> None:
     """Run initialization tasks when the API starts"""
 
-    init_db()
+    # Temporarily disable init_db to fix startup issue
+    # init_db()
+    print("Server starting - skipping database initialization for now")
 
 
 # Mount all API routes

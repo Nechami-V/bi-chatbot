@@ -20,6 +20,7 @@ from app.schemas.chat import QueryRequest, QueryResponse
 from app.simple_config import config
 from app.context_memory import context_store
 from app.followup import is_follow_up, summarize_answer, build_context_block
+from app.query_ast import HebrewQueryParser, create_sql_generator
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,10 @@ class ChatbotService:
     def __init__(self, db: Session):
         self.db = db
         self.ai_service = AIService(db, system_prompt=config.SYSTEM_PROMPT)
+        
+        # Add Hebrew Query AST system for better SQL generation
+        self.query_parser = HebrewQueryParser("sample-client")
+        self.sql_generator = create_sql_generator("sample-client")
 
     async def process_question(self, request: QueryRequest, user: Optional[User] = None) -> QueryResponse:
         """
@@ -125,12 +130,47 @@ class ChatbotService:
             return self._error_response(question, str(e), "Unexpected")
 
     async def _generate_sql(self, question: str, context_block: Optional[str] = None) -> Dict[str, Any]:
-        """Generate SQL with optional context for follow-up questions"""
+        """Generate SQL using OpenAI as primary method (user preference)"""
+        
+        # Use OpenAI as primary method per user request
         try:
-            return self.ai_service.generate_sql(question, context_block)
-        except Exception as e:
-            logger.error(f"SQL generation error: {e}")
-            return {'success': False, 'error': str(e)}
+            logger.info(f"Using OpenAI for SQL generation (user preference): {question}")
+            result = self.ai_service.generate_sql(question, context_block)
+            if result.get('success'):
+                result['method'] = 'openai'
+                return result
+            else:
+                logger.warning("OpenAI SQL generation failed, trying AST as fallback")
+                
+        except Exception as openai_error:
+            logger.warning(f"OpenAI failed: {openai_error}, trying AST as fallback")
+        
+        # Only fallback to AST if OpenAI completely fails
+        try:
+            logger.info("Using AST as fallback after OpenAI failure")
+            parsed_query = self.query_parser.parse(question)
+            
+            if parsed_query.confidence >= 0.4:  # Lower threshold for fallback
+                sql_query = self.sql_generator.generate_sql(parsed_query)
+                logger.info(f"AST fallback generated SQL (confidence: {parsed_query.confidence:.2f}): {sql_query}")
+                
+                return {
+                    'success': True,
+                    'sql': sql_query,
+                    'method': 'ast_fallback',
+                    'confidence': parsed_query.confidence,
+                    'intent': parsed_query.intent
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f"OpenAI failed and AST confidence too low ({parsed_query.confidence:.2f})",
+                    'method': 'both_failed'
+                }
+                
+        except Exception as ast_error:
+            logger.error(f"Both OpenAI and AST failed: AST={ast_error}")
+            return {'success': False, 'error': f"Both methods failed: {ast_error}"}
 
     async def _execute_query(self, sql: str) -> Dict[str, Any]:
         try:

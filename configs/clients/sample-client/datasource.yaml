@@ -1,0 +1,47 @@
+# Client-specific datasource configuration
+# Maps logical entities to physical database tables
+
+client_id: "sample-client"
+database_type: "sqlite"
+connection_string: "sqlite:///./data/bi_database.db"
+
+# Map logical entities to physical tables
+table_mappings:
+  customer:
+    physical_table: "customers"
+    columns:
+      id: "id"
+      first_name: "first_name"  
+      last_name: "last_name"
+      spouse_name: "spouse_name"
+      city: "city"
+      
+  order:
+    physical_table: "orders"
+    columns:
+      id: "id"
+      customer_id: "customer_id"
+      item_id: "item_id"
+      sale_id: "sale_id"
+      amount: "amount"
+      order_date: "order_date"
+      
+  item:
+    physical_table: "items"
+    columns:
+      id: "id"
+      name: "name"
+      group_id: "group_id"
+      
+  sale:
+    physical_table: "sales"
+    columns:
+      id: "id"
+      name: "name"
+      week: "week"
+
+# Database-specific settings
+database_settings:
+  max_results: 1000
+  timeout_seconds: 30
+  enable_explain: true

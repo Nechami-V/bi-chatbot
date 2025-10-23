@@ -1,0 +1,39 @@
+# Client-specific Hebrew to SQL mappings
+# Extends and overrides shared mappings
+
+client_id: "sample-client"
+
+# Additional Hebrew terms specific to this client
+custom_terms:
+  entities:
+    customer:
+      additional_names: ["קליינט", "צרכן", "רוכש"]
+    order: 
+      additional_names: ["רכישה", "עסקה", "טרנזקציה"]
+      
+  attributes:
+    amount:
+      additional_names: ["כסף", "תשלום", "חיוב"]
+    date:
+      additional_names: ["יום", "מועד"]
+
+# Business rules specific to this client
+business_rules:
+  default_filters:
+    # Only show orders from current year by default
+    order:
+      date: "strftime('%Y', date) = strftime('%Y', 'now')"
+      
+  default_ordering:
+    customer: "first_name ASC"
+    order: "order_date DESC"
+    
+# Client-specific query shortcuts
+shortcuts:
+  "מכירות השנה":
+    sql: "SELECT SUM(amount) FROM sales WHERE strftime('%Y', date) = strftime('%Y', 'now')"
+    description: "Total sales for current year"
+    
+  "לקוחות חדשים":
+    sql: "SELECT COUNT(*) FROM customers WHERE date(created_at) >= date('now', '-30 days')"
+    description: "New customers in last 30 days"
