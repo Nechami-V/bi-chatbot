@@ -67,7 +67,7 @@ def _normalize_hebrew(text: Optional[str]) -> str:
 
     normalized = " ".join(text.strip().split()).lower()
 
-    # Remove the Hebrew definite article prefix "ה" when applicable
+    # Remove the Hebrew definite article prefix when applicable
     if normalized.startswith("ה") and len(normalized) > 1:
         normalized = normalized[1:]
 

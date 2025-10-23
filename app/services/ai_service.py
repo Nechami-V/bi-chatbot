@@ -24,6 +24,7 @@ import json
 from sqlalchemy.orm import Session
 from sqlalchemy import inspect, text
 from app.simple_config import config
+from app.config_loader import config_loader
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -52,10 +53,79 @@ class AIService:
         logger.info("AI Service initialized successfully")
 
     def _analyze_database_schema(self) -> Dict[str, Any]:
-        logger.info("Analyzing database schema...")
+        """Load database schema from YAML configuration instead of introspection"""
+        logger.info("Loading database schema from YAML configuration...")
+        
+        try:
+            # Load configuration from YAML
+            ontology = config_loader.load_shared_ontology()
+            datasource, mappings = config_loader.load_client_config("sample-client")
+            
+            schema = {"tables": {}, "relationships": []}
+            
+            # Build schema from YAML configuration
+            for entity_name, entity in ontology.entities.items():
+                if entity_name not in datasource.table_mappings:
+                    continue
+                    
+                table_mapping = datasource.table_mappings[entity_name]
+                physical_table = table_mapping.physical_table
+                
+                # Convert YAML entity definition to schema format
+                columns = []
+                primary_keys = []
+                
+                for attr_name, attribute in entity.attributes.items():
+                    if attr_name not in table_mapping.columns:
+                        continue
+                        
+                    physical_col = table_mapping.columns[attr_name]
+                    
+                    columns.append({
+                        "name": physical_col,
+                        "logical_name": attr_name,
+                        "type": attribute.type.value,
+                        "nullable": attribute.nullable,
+                        "hebrew_names": attribute.hebrew_names,
+                        "primary_key": attribute.primary_key
+                    })
+                    
+                    if attribute.primary_key:
+                        primary_keys.append(physical_col)
+                
+                schema["tables"][physical_table] = {
+                    "entity_name": entity_name,
+                    "display_name": entity.display_name,
+                    "hebrew_names": entity.hebrew_names,
+                    "columns": columns,
+                    "primary_key": primary_keys,
+                    "foreign_keys": [],  # Can be extended later if needed
+                }
+            
+            # Add relationships if they exist
+            if ontology.relationships:
+                for rel_name, relationship in ontology.relationships.items():
+                    schema["relationships"].append({
+                        "from_entity": relationship.from_entity,
+                        "to_entity": relationship.to_entity,
+                        "type": relationship.type.value,
+                        "foreign_key": relationship.foreign_key
+                    })
+            
+            logger.info(f"Loaded schema for {len(schema['tables'])} tables from YAML")
+            return schema
+            
+        except Exception as e:
+            logger.error(f"Failed to load schema from YAML: {e}")
+            # Fallback to original schema analysis if YAML fails
+            return self._fallback_schema_analysis()
+    
+    def _fallback_schema_analysis(self) -> Dict[str, Any]:
+        """Fallback to original database introspection if YAML fails"""
+        logger.info("Using fallback database schema analysis...")
         inspector = inspect(self.db.get_bind())
         schema = {"tables": {}, "relationships": []}
-        relevant_tables = config.BUSINESS_TABLES
+        relevant_tables = config.BUSINESS_TABLES if hasattr(config, 'BUSINESS_TABLES') else []
 
         for table_name in relevant_tables:
             if table_name not in inspector.get_table_names():
@@ -74,30 +144,12 @@ class AIService:
             ]
 
             primary_keys = [c["name"] for c in columns if c.get("primary_key", False)]
-            foreign_keys = [
-                {
-                    "constrained_columns": fk["constrained_columns"],
-                    "referred_table": fk["referred_table"],
-                    "referred_columns": fk["referred_columns"],
-                }
-                for fk in inspector.get_foreign_keys(table_name)
-            ]
-
+            
             schema["tables"][table_name] = {
                 "columns": columns,
                 "primary_key": primary_keys,
-                "foreign_keys": foreign_keys,
+                "foreign_keys": [],
             }
-
-            for fk in foreign_keys:
-                schema["relationships"].append(
-                    {
-                        "from_table": table_name,
-                        "from_columns": fk["constrained_columns"],
-                        "to_table": fk["referred_table"],
-                        "to_columns": fk["referred_columns"],
-                    }
-                )
 
         return schema
 
@@ -160,13 +212,33 @@ class AIService:
         tables_summary = self._select_relevant_tables(question)
         schema_brief = json.dumps({"tables": tables_summary}, ensure_ascii=False)
         
+        # Extract table names for reference
+        table_names = list(self.schema_info.get("tables", {}).keys())
+        
         base_prompt = (
-            f"Translate the following Hebrew business question into one valid and optimized SQL SELECT query for {db}. "
-            "Use only the table and column names exactly as they appear in the provided SCHEMA. "
-            "Use JOINs only when they are truly necessary. "
-            "Do not invent tables or columns that do not exist in the SCHEMA. "
-            "Return only the SQL query itself — no explanations, no comments, no markdown, and no extra text.\n\n"
-            f"SCHEMA: {schema_brief}\n"
+            f"Create a SQL SELECT query for {db} database from this Hebrew business question.\n\n"
+            "🔴 CRITICAL: Use ONLY these EXACT table and column names:\n"
+            f"Available tables: {', '.join(table_names)}\n\n"
+            "📋 SCHEMA WITH CORRECT NAMES:\n"
+            f"{schema_brief}\n\n"
+            "✅ INSTRUCTIONS:\n"
+            "1. Use ONLY 'physical_name' values from the schema above\n"
+            "2. Match Hebrew words to 'hebrew_names' to understand what the user wants\n"
+            "3. For week calculations: strftime('%W', order_date) - DO NOT use non-existent 'week' column\n"
+            "4. For year calculations: strftime('%Y', order_date)\n"
+            "5. Previous year: strftime('%Y', order_date) = strftime('%Y', 'now', '-1 year')\n\n"
+            "🚫 DO NOT USE:\n"
+            "- OrdersBot2025 (wrong table name)\n"
+            "- תאריך (wrong column name)\n"
+            "- week (non-existent column)\n\n"
+            "✅ DO USE:\n"
+            f"- {table_names} (correct table names)\n"
+            "- order_date (correct column name for dates)\n"
+            "- strftime functions for date calculations\n\n"
+            "📚 EXAMPLES:\n"
+            "• 'כמה הזמנות השנה?' → SELECT COUNT(*) FROM orders WHERE strftime('%Y', order_date) = strftime('%Y', 'now')\n"
+            "• 'הזמנות בשבוע' → SELECT strftime('%W', order_date) as week_num, COUNT(*) FROM orders GROUP BY week_num\n"
+            "• 'הזמנות שנה שעברה' → SELECT COUNT(*) FROM orders WHERE strftime('%Y', order_date) = strftime('%Y', 'now', '-1 year')\n\n"
         )
         
         # Inject context block if this is a follow-up
@@ -180,25 +252,34 @@ class AIService:
         
         return base_prompt
 
-
-
-    # def _build_select_prompt(self, question: str) -> str:
-    #     tables_summary = self._select_relevant_tables(question)
-    #     schema_brief = json.dumps(tables_summary, ensure_ascii=False)
-    #     return (
-    #         f"{self.system_prompt}\n"
-    #         "Convert Hebrew question to a single valid SELECT SQL for SQLite. Use column names as-is. Join only if necessary. Return only SQL, no extra text.\n"
-    #         f"SCHEMA: {schema_brief}\n"
-    #         f"QUESTION: {question}\n"
-    #         "SELECT ONLY"
-    #     )
-    
-    def _select_relevant_tables(self, question: str) -> Dict[str, List[str]]:
-    # Send full schema every time (table → column names)
-        return {
-            tname: [c["name"] for c in meta.get("columns", [])]
-            for tname, meta in self.schema_info.get("tables", {}).items()
-        }
+    def _select_relevant_tables(self, question: str) -> Dict[str, Any]:
+        """Send full schema with Hebrew names and logical mapping"""
+        tables_schema = {}
+        
+        for tname, meta in self.schema_info.get("tables", {}).items():
+            # Include physical table info with Hebrew context
+            table_info = {
+                "physical_name": tname,
+                "logical_name": meta.get("entity_name", tname),
+                "display_name": meta.get("display_name", tname),
+                "hebrew_names": meta.get("hebrew_names", []),
+                "columns": []
+            }
+            
+            # Add column information with Hebrew names
+            for col in meta.get("columns", []):
+                col_info = {
+                    "physical_name": col["name"],
+                    "logical_name": col.get("logical_name", col["name"]),
+                    "type": col.get("type", "TEXT"),
+                    "hebrew_names": col.get("hebrew_names", []),
+                    "primary_key": col.get("primary_key", False)
+                }
+                table_info["columns"].append(col_info)
+            
+            tables_schema[tname] = table_info
+        
+        return tables_schema
 
     def _call_openai_for_sql(self, prompt: str, mode: str = "strict") -> str:
         sql_tokens = min(256, getattr(config, "MAX_TOKENS", 1000))
@@ -227,7 +308,7 @@ class AIService:
         """
         if not question:
             return None
-        # Handle city-only short queries like "בחיפה?" → assume intent is customer count by city
+        # Handle city-only short queries like "in Haifa?" → assume intent is customer count by city
         city_only = self._extract_city_from_question(question)
         if city_only:
             safe_city = city_only.replace("'", "''").strip()
@@ -247,17 +328,17 @@ class AIService:
         q_low = q.lower()
         # Detect intent: count customers
         if ('כמה' in q_low) and ('לקוח' in q_low or 'לקוחות' in q_low):
-            # Try extract city after a 'ב' preposition near the end
+            # Try extract city after a Hebrew preposition near the end
             import re
-            # Examples: "כמה לקוחות יש בחיפה", "כמה לקוחות יש בעיר חיפה"
-            # Prefer last ' ב' occurrence to catch city phrase
+            # Examples: Hebrew queries asking about customers in specific cities
+            # Prefer last preposition occurrence to catch city phrase
             city = None
             m = re.search(r"\sב([^?.!,]+)$", q)
             if m:
                 city = m.group(1).strip()
-                # Clean wrapping words like 'עיר', 'בעיר'
+                # Clean wrapping words like 'city' in Hebrew
                 city = re.sub(r"^(עיר|בעיר)\s+", "", city).strip()
-                # Remove trailing words like 'יש' if miscaptured
+                # Remove trailing words that might be miscaptured
                 city = city.replace('יש', '').strip()
                 # Remove quotes
                 city = city.strip("'\"")
@@ -509,13 +590,13 @@ class AIService:
             return None
         import re
         q = (question or "").strip()
-        # Pattern A: space-then-"ב" until end
+        # Pattern A: space-then-Hebrew-preposition until end
         m = re.search(r"\sב([^?.!,]+)$", q)
         city = None
         if m:
             city = m.group(1)
         else:
-            # Pattern B: standalone token starting with 'ב' even without a leading space, e.g., "בחיפה?"
+            # Pattern B: standalone token starting with Hebrew preposition even without a leading space
             m2 = re.search(r"\bב([\u0590-\u05FFA-Za-z\-\s]+)[?!. ,]*$", q)
             if m2:
                 city = m2.group(1)

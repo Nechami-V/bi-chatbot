@@ -20,7 +20,7 @@ class Config:
     MAX_TOKENS = int(os.getenv("MAX_TOKENS", "1000"))
 
     # --- Database Settings ---
-    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./bi_chatbot.db")
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/bi_database.db")
 
     # --- Business Tables ---
     BUSINESS_TABLES = ["ClientsBot2025", "OrdersBot2025", "ItemsBot2025", "SalesBot2025"]

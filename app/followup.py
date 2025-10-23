@@ -72,7 +72,7 @@ def is_follow_up(question: str, prev_question: Optional[str]) -> bool:
     
     for pattern in time_shift_patterns:
         if re.search(pattern, question):
-            # Check if question lacks main entity (no mention of "לקוח", "מכירה", etc.)
+            # Check if question lacks main entity (no mention of customer, sale, etc.)
             entities = ["לקוח", "מכירה", "הזמנה", "פריט", "מוצר", "עיר", "קבוצה"]
             has_entity = any(entity in question for entity in entities)
             
@@ -88,8 +88,8 @@ def is_follow_up(question: str, prev_question: Optional[str]) -> bool:
     
     # Heuristic 5: Questions with only modifiers (no subject)
     modifier_only_patterns = [
-        r"^ב[א-ת]+\s*\?*$",  # "בירושלים?", "בשנה?"
-        r"^מ[א-ת]+\s*\?*$",  # "מהעיר?", "מהקבוצה?"
+        r"^ב[א-ת]+\s*\?*$",  # Hebrew preposition patterns
+        r"^מ[א-ת]+\s*\?*$",  # Hebrew question patterns
     ]
     
     for pattern in modifier_only_patterns:

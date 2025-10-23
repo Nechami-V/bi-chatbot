@@ -1,0 +1,124 @@
+# Shared Business Ontology
+# Define entities, attributes, and relationships based on actual database schema
+
+entities:
+  customer:
+    display_name: "Customer"
+    table_name: "customers"
+    hebrew_names: ["לקוח", "לקוחות", "קונה", "קונים"]
+    description: "Business customers"
+    attributes:
+      id:
+        type: "integer"
+        primary_key: true
+        column_name: "id"
+        hebrew_names: ["מזהה", "קוד לקוח"]
+      first_name:
+        type: "string"
+        column_name: "first_name"
+        hebrew_names: ["שם פרטי", "שם ראשון", "שם"]
+      last_name:
+        type: "string"
+        column_name: "last_name"
+        hebrew_names: ["שם משפחה", "שם אחרון", "משפחה"]
+      spouse_name:
+        type: "string"
+        column_name: "spouse_name"
+        hebrew_names: ["בן זוג", "בת זוג", "בני זוג", "שם בן זוג"]
+      city:
+        type: "string"
+        column_name: "city"
+        hebrew_names: ["עיר", "יישוב", "מקום מגורים"]
+      
+  order:
+    display_name: "Order"
+    table_name: "orders"
+    hebrew_names: ["הזמנה", "הזמנות", "רכישה", "רכישות"]
+    description: "Customer orders"
+    attributes:
+      id:
+        type: "integer"
+        primary_key: true
+        column_name: "id"
+        hebrew_names: ["מזהה הזמנה", "קוד הזמנה"]
+      customer_id:
+        type: "integer"
+        foreign_key: "customer.id"
+        column_name: "customer_id"
+        hebrew_names: ["לקוח", "קוד לקוח", "מזהה לקוח"]
+      item_id:
+        type: "integer"
+        foreign_key: "item.id"
+        column_name: "item_id"
+        hebrew_names: ["פריט", "קוד פריט", "מזהה פריט"]
+      sale_id:
+        type: "integer"
+        foreign_key: "sale.id"
+        column_name: "sale_id"
+        hebrew_names: ["מכירה", "קוד מכירה", "מזהה מכירה"]
+      amount:
+        type: "decimal"
+        column_name: "amount"
+        hebrew_names: ["סכום", "כמות", "כסף", "מחיר"]
+      order_date:
+        type: "date"
+        column_name: "order_date"
+        hebrew_names: ["תאריך", "תאריך הזמנה", "זמן", "מתי"]
+      
+  item:
+    display_name: "Item"
+    table_name: "items"
+    hebrew_names: ["פריט", "פריטים", "מוצר", "מוצרים", "דבר"]
+    description: "Products and items"
+    attributes:
+      id:
+        type: "integer"
+        primary_key: true
+        column_name: "id"
+        hebrew_names: ["מזהה פריט", "קוד מוצר", "קוד פריט"]
+      name:
+        type: "string"
+        column_name: "name"
+        hebrew_names: ["שם", "שם הפריט", "שם המוצר", "תיאור"]
+      group_id:
+        type: "integer"
+        column_name: "group_id"
+        hebrew_names: ["קבוצה", "קוד קבוצה", "קטגוריה"]
+        
+  sale:
+    display_name: "Sale"
+    table_name: "sales"
+    hebrew_names: ["מכירה", "מכירות", "חלוקה", "חלוקות"]
+    description: "Sales events/periods"
+    attributes:
+      id:
+        type: "integer"
+        primary_key: true
+        column_name: "id"
+        hebrew_names: ["מזהה מכירה", "קוד מכירה"]
+      name:
+        type: "string"
+        column_name: "name"
+        hebrew_names: ["שם", "שם המכירה", "שם החלוקה"]
+      week:
+        type: "string"
+        column_name: "week"
+        hebrew_names: ["שבוע", "פרשה", "פרשת השבוע", "שבוע בשנה"]
+
+# Define relationships between entities
+relationships:
+  customer_orders:
+    from: "customer"
+    to: "order"
+    type: "one_to_many"
+    foreign_key: "customer_id"
+  order_items:
+    from: "item"
+    to: "order"
+    type: "one_to_many"
+    foreign_key: "item_id"
+  sale_orders:
+    from: "sale"
+    to: "order"
+    type: "one_to_many"
+    foreign_key: "sale_id"
