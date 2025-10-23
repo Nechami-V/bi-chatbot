@@ -46,7 +46,7 @@ class TestFollowUpDetection:
         """Test detection of time-shift patterns without main entity"""
         prev = "כמה לקוחות יש לנו?"
         
-        # Time shifts without restating "לקוח"
+        # Time shifts without restating main entity
         assert is_follow_up("בחודש שעבר", prev) == True
         assert is_follow_up("בשנה הבאה", prev) == True
         assert is_follow_up("בשבוע האחרון", prev) == True

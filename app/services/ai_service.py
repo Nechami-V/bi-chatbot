@@ -308,7 +308,7 @@ class AIService:
         """
         if not question:
             return None
-        # Handle city-only short queries like "בחיפה?" → assume intent is customer count by city
+        # Handle city-only short queries like "in Haifa?" → assume intent is customer count by city
         city_only = self._extract_city_from_question(question)
         if city_only:
             safe_city = city_only.replace("'", "''").strip()
@@ -328,17 +328,17 @@ class AIService:
         q_low = q.lower()
         # Detect intent: count customers
         if ('כמה' in q_low) and ('לקוח' in q_low or 'לקוחות' in q_low):
-            # Try extract city after a 'ב' preposition near the end
+            # Try extract city after a Hebrew preposition near the end
             import re
-            # Examples: "כמה לקוחות יש בחיפה", "כמה לקוחות יש בעיר חיפה"
-            # Prefer last ' ב' occurrence to catch city phrase
+            # Examples: Hebrew queries asking about customers in specific cities
+            # Prefer last preposition occurrence to catch city phrase
             city = None
             m = re.search(r"\sב([^?.!,]+)$", q)
             if m:
                 city = m.group(1).strip()
-                # Clean wrapping words like 'עיר', 'בעיר'
+                # Clean wrapping words like 'city' in Hebrew
                 city = re.sub(r"^(עיר|בעיר)\s+", "", city).strip()
-                # Remove trailing words like 'יש' if miscaptured
+                # Remove trailing words that might be miscaptured
                 city = city.replace('יש', '').strip()
                 # Remove quotes
                 city = city.strip("'\"")
@@ -590,13 +590,13 @@ class AIService:
             return None
         import re
         q = (question or "").strip()
-        # Pattern A: space-then-"ב" until end
+        # Pattern A: space-then-Hebrew-preposition until end
         m = re.search(r"\sב([^?.!,]+)$", q)
         city = None
         if m:
             city = m.group(1)
         else:
-            # Pattern B: standalone token starting with 'ב' even without a leading space, e.g., "בחיפה?"
+            # Pattern B: standalone token starting with Hebrew preposition even without a leading space
             m2 = re.search(r"\bב([\u0590-\u05FFA-Za-z\-\s]+)[?!. ,]*$", q)
             if m2:
                 city = m2.group(1)
