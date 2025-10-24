@@ -39,12 +39,9 @@ def init_db():
     try:
         logger.info("Initializing database...")
         
-        # Import models so that they are registered with Base
-        from app.models.client import Client  # noqa: F401
-        from app.models.item import Item  # noqa: F401
-        from app.models.order import Order  # noqa: F401
-        from app.models.sale import Sale  # noqa: F401
-        from app.models.translation_dictionary import TranslationDictionaryModel  # noqa: F401
+        git commit -m "Remove unused ORM models - direct SQL execution only"        # Models are not needed - working directly with existing database via SQL
+        # Only User model for authentication is required
+        pass
         
         # Create all tables
         logger.info("Creating database tables...")

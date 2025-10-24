@@ -31,9 +31,8 @@ Author: BI Chatbot Team
 Version: 3.0.0 - With Authentication
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 

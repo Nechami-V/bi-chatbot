@@ -17,12 +17,16 @@ Version: 2.1.0
 """
 
 import logging
-import time
-from openai import OpenAI
-from typing import Dict, List, Optional, Any
 import json
+import logging
+import re
+import time
+from typing import Dict, Optional, Any
+
+from openai import OpenAI
 from sqlalchemy.orm import Session
 from sqlalchemy import inspect, text
+
 from app.simple_config import config
 from app.config_loader import config_loader
 
@@ -307,7 +311,6 @@ class AIService:
     def _extract_json_block(self, text: str) -> Optional[str]:
         if not text:
             return None
-        import re
         fence = re.search(r"```\s*json\s*(\{[\s\S]*?\})\s*```", text, re.IGNORECASE)
         if fence:
             return fence.group(1)
@@ -320,7 +323,6 @@ class AIService:
     def _extract_select_sql(self, text: str) -> Optional[str]:
         if not text:
             return None
-        import re
         m = re.search(r"(?is)\bselect\b[\s\S]+?\bfrom\b[\s\S]+?(?:;|$)", text)
         if not m:
             return None
