@@ -39,7 +39,6 @@ def init_db():
     try:
         logger.info("Initializing database...")
         
-        git commit -m "Remove unused ORM models - direct SQL execution only"        # Models are not needed - working directly with existing database via SQL
         # Only User model for authentication is required
         pass
         
