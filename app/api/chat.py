@@ -32,16 +32,4 @@ async def ask_question(
     return await chatbot_service.process_question(request, user=current_user)
 
 
-@router.post("/ask-demo", response_model=QueryResponse, tags=["Chatbot"])
-async def ask_question_demo(
-    request: QueryRequest,
-    db: Session = Depends(get_db)
-) -> QueryResponse:
-    """Demo endpoint without authentication (for testing)"""
-    chatbot_service = ChatbotService(db)
-    # Use admin user for demo
-    admin_user = user_db.get_user_by_email("nech397@gmail.com")
-    if not admin_user:
-        raise HTTPException(status_code=500, detail="Demo admin user not found")
-    
-    return await chatbot_service.process_question(request, user=admin_user)
+# Demo endpoint removed - use proper authentication

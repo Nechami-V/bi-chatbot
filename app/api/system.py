@@ -30,7 +30,7 @@ def root():
         "endpoints": {
             "chat": "/ask (authenticated)",
             "voice_chat": "/voice-query (authenticated, audio files)",
-            "chat_demo": "/ask-demo (no auth)",
+
             "login": "/api/v1/auth/login",
             "user_info": "/api/v1/auth/me", 
             "health": "/health",

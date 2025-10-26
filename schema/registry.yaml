@@ -1,0 +1,373 @@
+# BI Schema Registry - Multi-Source Support
+version: 2.0
+
+# מקורות נתונים - תמיכה במקורות מרובים
+data_sources:
+  # מקור נתונים ברירת מחדל - SQLite מקומי
+  default:
+    id: "local_sqlite"
+    name: "Local SQLite Database"
+    type: "sqlite"
+    connection_string: "${DATABASE_URL:-sqlite:///./bi_chatbot.db}"
+    default_schema: "main"
+    description: "מסד הנתונים המקומי של המערכת"
+    
+  # דוגמאות למקורות נוספים (כרגע לא פעילים)
+  # external_sql_server:
+  #   id: "main_sqlserver" 
+  #   name: "Main SQL Server"
+  #   type: "mssql"
+  #   connection_string: "${MSSQxxxxxxxCTION_STRING}"
+  #   default_schema: "dbo"
+  #   description: "SQL Server הראשי של הארגון"
+  
+  # analytics_postgres:
+  #   id: "analytics_pg"
+  #   name: "Analytics PostgreSQL"
+  #   type: "postgresql"
+  #   connection_string: "${PG_CONNECTION_STRING}"
+  #   default_schema: "public"
+  #   description: "בסיס נתונים לאנליטיקה"
+
+# הגדרות כלליות
+settings:
+  default_source: "default"
+  enable_caching: true
+  cache_ttl_seconds: 300
+  max_query_timeout_seconds: 30
+
+# מודל לוגי: ישויות עסקיות, שדות ויחסים
+business_model:
+  entities:
+    # טבלת לקוחות - ClientsBot2025
+    clients:
+      display_name: "לקוחות"
+      description: "רשימת לקוחות הארגון"
+      data_source: "default" 
+      physical_table: "ClientsBot2025"
+      fields:
+        id:
+          display_name: "מזהה לקוח"
+          description: "מזהה ייחודי של הלקוח"
+          type: "integer"
+          physical_column: "ID_לקוח"
+          is_primary_key: true
+          is_nullable: false
+        first_name:
+          display_name: "שם פרטי"
+          description: "השם הפרטי של הלקוח"
+          type: "string"
+          physical_column: "fname"
+          is_nullable: true
+        last_name:
+          display_name: "שם משפחה" 
+          description: "שם המשפחה של הלקוח"
+          type: "string"
+          physical_column: "lname"
+          is_nullable: true
+        spouse_name:
+          display_name: "שם בן/בת זוג"
+          description: "שם בן או בת הזוג"
+          type: "string"
+          physical_column: "wname"
+          is_nullable: true
+        city:
+          display_name: "עיר מגורים"
+          description: "עיר המגורים של הלקוח"
+          type: "string"
+          physical_column: "city"
+          is_nullable: true
+
+    # טבלת פריטים - ItemsBot2025  
+    items:
+      display_name: "פריטים"
+      description: "קטלוג מוצרים ופריטים"
+      data_source: "default"
+      physical_table: "ItemsBot2025"
+      fields:
+        id:
+          display_name: "מזהה פריט"
+          description: "מזהה ייחודי של הפריט"
+          type: "integer"
+          physical_column: "ID_פריט"
+          is_primary_key: true
+          is_nullable: false
+        name:
+          display_name: "שם הפריט"
+          description: "התיאור הטקסטואלי של הפריט"
+          type: "string"
+          physical_column: "name"
+          is_nullable: true
+        group_id:
+          display_name: "קבוצת פריט"
+          description: "מזהה קבוצת הפריטים שאליה שייך הפריט"
+          type: "integer"
+          physical_column: "pgrp"
+          is_nullable: true
+
+    # טבלת מכירות - SalesBot2025
+    sales:
+      display_name: "מכירות"
+      description: "רשימת מכירות ואירועי מכירה"
+      data_source: "default"
+      physical_table: "SalesBot2025"
+      fields:
+        id:
+          display_name: "מזהה מכירה"
+          description: "מזהה ייחודי של אירוע המכירה"
+          type: "integer"
+          physical_column: "ID_מכירה"
+          is_primary_key: true
+          is_nullable: false
+        week:
+          display_name: "שבוע"
+          description: "שבוע או תקופה של המכירה"
+          type: "string"
+          physical_column: "week"
+          is_nullable: true
+        name:
+          display_name: "שם המכירה"
+          description: "שם או תיאור המכירה"
+          type: "string"
+          physical_column: "name"
+          is_nullable: true
+
+    # טבלת הזמנות - OrdersBot2025 (טבלת עובדות מרכזית)
+    orders:
+      display_name: "הזמנות"
+      description: "פרטי הזמנות - טבלת העובדות המרכזית"
+      data_source: "default"
+      physical_table: "OrdersBot2025"
+      is_fact_table: true
+      fields:
+        sale_id:
+          display_name: "מזהה מכירה"
+          description: "קשר לאירוע המכירה"
+          type: "integer"
+          physical_column: "ID_מכירה"
+          is_foreign_key: true
+          is_nullable: false
+        customer_id:
+          display_name: "מזהה לקוח" 
+          description: "קשר ללקוח שביצע את ההזמנה"
+          type: "integer"
+          physical_column: "ID_לקוח"
+          is_foreign_key: true
+          is_nullable: false
+        item_id:
+          display_name: "מזהה פריט"
+          description: "קשר לפריט שהוזמן"
+          type: "integer"
+          physical_column: "ID_פריט"
+          is_foreign_key: true
+          is_nullable: false
+        order_date:
+          display_name: "תאריך הזמנה"
+          description: "תאריך וזמן ביצוע ההזמנה"
+          type: "datetime"
+          physical_column: "תאריך"
+          is_nullable: true
+        amount:
+          display_name: "סכום"
+          description: "סכום ההזמנה"
+          type: "decimal"
+          physical_column: "סכום"
+          is_nullable: true
+          is_measure: true
+
+  # יחסים בין הישויות - מבנה כוכב (Star Schema)
+  relationships:
+    # מהזמנות ללקוחות
+    orders_to_clients:
+      display_name: "הזמנות ← לקוחות"
+      description: "כל הזמנה שייכת ללקוח אחד"
+      from_entity: "orders"
+      from_field: "customer_id"
+      to_entity: "clients"
+      to_field: "id"
+      relationship_type: "many_to_one"
+      
+    # מהזמנות לפריטים  
+    orders_to_items:
+      display_name: "הזמנות ← פריטים"
+      description: "כל הזמנה מכילה פריט אחד"
+      from_entity: "orders"
+      from_field: "item_id"
+      to_entity: "items"
+      to_field: "id"
+      relationship_type: "many_to_one"
+      
+    # מהזמנות למכירות
+    orders_to_sales:
+      display_name: "הזמנות ← מכירות"
+      description: "כל הזמנה שייכת לאירוע מכירה"
+      from_entity: "orders"
+      from_field: "sale_id"
+      to_entity: "sales"
+      to_field: "id"
+      relationship_type: "many_to_one"
+
+# מילון מונחי עסק (Business Glossary) - מיפוי מונחים בעברית לשדות במודל
+business_glossary:
+  # קטגוריה: לקוחות וצרכנים
+  customer_terms:
+    - hebrew_terms: ["לקוחות", "לקוחות הארגון", "צרכנים"]
+      entity_ref: "clients.id"
+      default_aggregation: "COUNT"
+      confidence: 1.0
+      description: "ספירת לקוחות"
+      
+    - hebrew_terms: ["לקוח חדש", "לקוחות חדשים", "רישום חדש"]  
+      entity_ref: "clients.id"
+      default_aggregation: "COUNT"
+      confidence: 0.95
+      description: "ספירת לקוחות (בהקשר של חדשים)"
+      
+    - hebrew_terms: ["עיר", "ערים", "יישוב", "יישובים", "מיקום", "מקום מגורים"]
+      entity_ref: "clients.city"
+      default_aggregation: "GROUP_BY"
+      confidence: 1.0
+      description: "עיר מגורים של לקוח"
+      
+    - hebrew_terms: ["שם פרטי", "שמות פרטיים"]
+      entity_ref: "clients.first_name"
+      default_aggregation: "GROUP_BY"
+      confidence: 1.0
+      
+    - hebrew_terms: ["שם משפחה", "משפחה", "שמות משפחה"]
+      entity_ref: "clients.last_name"
+      default_aggregation: "GROUP_BY"
+      confidence: 1.0
+
+  # קטגוריה: מוצרים ופריטים
+  product_terms:
+    - hebrew_terms: ["פריטים", "מוצרים", "מוצר", "פריט", "מלאי"]
+      entity_ref: "items.id"
+      default_aggregation: "COUNT"
+      confidence: 1.0
+      description: "ספירת פריטים"
+      
+    - hebrew_terms: ["שם פריט", "שם מוצר", "תיאור פריט"]
+      entity_ref: "items.name"
+      default_aggregation: "GROUP_BY"
+      confidence: 1.0
+      
+    - hebrew_terms: ["קבוצת פריטים", "קטגוריה", "סוג מוצר", "קבוצה"]
+      entity_ref: "items.group_id"
+      default_aggregation: "GROUP_BY"
+      confidence: 0.9
+
+  # קטגוריה: מכירות ואירועי מכירה
+  sales_terms:
+    - hebrew_terms: ["מכירות", "אירוע מכירה", "מבצע", "מבצעים"]
+      entity_ref: "sales.id"
+      default_aggregation: "COUNT"
+      confidence: 1.0
+      description: "ספירת אירועי מכירה"
+      
+    - hebrew_terms: ["שבוע", "תקופה", "זמן"]
+      entity_ref: "sales.week"
+      default_aggregation: "GROUP_BY"
+      confidence: 0.8
+      
+    - hebrew_terms: ["שם מכירה", "שם מבצע"]
+      entity_ref: "sales.name"
+      default_aggregation: "GROUP_BY"
+      confidence: 1.0
+
+  # קטגוריה: הזמנות ונתונים כמותיים
+  transaction_terms:
+    - hebrew_terms: ["הזמנות", "רכישות", "קניות", "עסקאות"]
+      entity_ref: "orders.sale_id"
+      default_aggregation: "COUNT"
+      confidence: 0.95
+      description: "ספירת הזמנות"
+      
+    - hebrew_terms: ["סכום", "כסף", "מחיר", "עלות", "הכנסה", "מחזור"]
+      entity_ref: "orders.amount"
+      default_aggregation: "SUM"
+      confidence: 1.0
+      description: "סיכום סכומים כספיים"
+      
+    - hebrew_terms: ["תאריך", "תאריכים", "זמן", "מועד", "יום"]
+      entity_ref: "orders.order_date"
+      default_aggregation: "GROUP_BY"
+      confidence: 1.0
+      description: "תאריך ההזמנה"
+
+# הגדרות אנליטיות - מדדים ומימדים לניתוח BI
+analytics_config:
+  # מדדים (Measures) - נתונים כמותיים שניתן לחשב עליהם
+  measures:
+    total_amount:
+      display_name: "סכום כולל"
+      entity_ref: "orders.amount"
+      aggregation: "SUM"
+      format: "currency"
+      description: "סכום כספי כולל"
+      
+    average_amount:
+      display_name: "סכום ממוצע"
+      entity_ref: "orders.amount"
+      aggregation: "AVG"
+      format: "currency"
+      description: "ממוצע סכום הזמנה"
+      
+    order_count:
+      display_name: "מספר הזמנות"
+      entity_ref: "orders.sale_id"
+      aggregation: "COUNT"
+      format: "number"
+      description: "כמות הזמנות"
+      
+    customer_count:
+      display_name: "מספר לקוחות"
+      entity_ref: "clients.id"
+      aggregation: "COUNT_DISTINCT"
+      format: "number"
+      description: "מספר לקוחות ייחודיים"
+
+  # מימדים (Dimensions) - אופן קיבוץ וחיתוך הנתונים
+  dimensions:
+    by_city:
+      display_name: "לפי עיר"
+      entity_ref: "clients.city"
+      description: "קיבוץ לפי עיר מגורים"
+      
+    by_item:
+      display_name: "לפי פריט"
+      entity_ref: "items.name"
+      description: "קיבוץ לפי סוג פריט"
+      
+    by_sale_event:
+      display_name: "לפי אירוע מכירה"
+      entity_ref: "sales.name"
+      description: "קיבוץ לפי אירוע מכירה"
+      
+    by_date:
+      display_name: "לפי תאריך"
+      entity_ref: "orders.order_date"
+      description: "קיבוץ לפי תאריך"
+
+# הגדרות שאילתות נפוצות - תבניות שאילתא מוכנות
+query_templates:
+  sales_by_city:
+    display_name: "מכירות לפי עיר"
+    description: "סיכום מכירות מקובץ לפי עיר"
+    sql_template: |
+      SELECT c.city, SUM(o.amount) as total_sales, COUNT(*) as order_count
+      FROM orders o
+      JOIN clients c ON o.customer_id = c.id
+      GROUP BY c.city
+      ORDER BY total_sales DESC
+      
+  top_items:
+    display_name: "פריטים מובילים"
+    description: "רשימת הפריטים הנמכרים ביותר"
+    sql_template: |
+      SELECT i.name, SUM(o.amount) as total_sales, COUNT(*) as order_count
+      FROM orders o
+      JOIN items i ON o.item_id = i.id
+      GROUP BY i.id, i.name
+      ORDER BY total_sales DESC
+      LIMIT 10

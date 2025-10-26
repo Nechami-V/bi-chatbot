@@ -1,8 +1,4 @@
-from .customer import Customer
-from .client import Client
-from .item import Item
-from .order import Order
-from .sale import Sale
-from .translation_dictionary import TranslationDictionaryModel
+# Business models removed - using direct SQL execution
+# Only user authentication model remains
 
-__all__ = ["Customer", "Client", "Item", "Order", "Sale", "TranslationDictionaryModel"]
+__all__ = []

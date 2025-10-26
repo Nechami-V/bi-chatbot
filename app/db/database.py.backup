@@ -76,13 +76,12 @@ def seed_translation_dictionary(db):
     Args:
         db: SQLAlchemy database session
     """
-    from app.models.translation_dictionary import TranslationDictionaryModel
-    
-    logger.debug("Loading translation dictionary seed data...")
+    # Translation dictionary replaced by YAML configuration
+    logger.debug("Translation dictionary handled by YAML configs...")
     
     try:
-        # Check if already seeded
-        existing_count = db.query(TranslationDictionaryModel).count()
+        # No seeding needed - using YAML
+        existing_count = 0
         if existing_count > 0:
             logger.debug(f"Translation dictionary already seeded with {existing_count} entries")
             return

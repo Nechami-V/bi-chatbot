@@ -17,12 +17,16 @@ Version: 2.1.0
 """
 
 import logging
-import time
-from openai import OpenAI
-from typing import Dict, List, Optional, Any
 import json
+import logging
+import re
+import time
+from typing import Dict, Optional, Any
+
+from openai import OpenAI
 from sqlalchemy.orm import Session
 from sqlalchemy import inspect, text
+
 from app.simple_config import config
 from app.config_loader import config_loader
 
@@ -302,77 +306,11 @@ class AIService:
         
         return ai_content
 
-    def _rule_sql_shortcut(self, question: str) -> Optional[Dict[str, Any]]:
-        """Heuristic shortcuts: handle 'כמה לקוחות' with/without city without calling LLM.
-        Returns a parsed-like dict or None if not applicable.
-        """
-        if not question:
-            return None
-        # Handle city-only short queries like "in Haifa?" → assume intent is customer count by city
-        city_only = self._extract_city_from_question(question)
-        if city_only:
-            safe_city = city_only.replace("'", "''").strip()
-            sql = (
-                "SELECT COUNT(*) AS customer_count FROM ClientsBot2025 "
-                f"WHERE TRIM(city) = '{safe_city}' OR TRIM(city) LIKE '{safe_city}%'"
-            )
-            return {
-                'success': True,
-                'sql': sql,
-                'tables': ['ClientsBot2025'],
-                'description': f"ספירת לקוחות בעיר {city_only}",
-                'raw_response': None,
-                'error': None,
-            }
-        q = question.strip()
-        q_low = q.lower()
-        # Detect intent: count customers
-        if ('כמה' in q_low) and ('לקוח' in q_low or 'לקוחות' in q_low):
-            # Try extract city after a Hebrew preposition near the end
-            import re
-            # Examples: Hebrew queries asking about customers in specific cities
-            # Prefer last preposition occurrence to catch city phrase
-            city = None
-            m = re.search(r"\sב([^?.!,]+)$", q)
-            if m:
-                city = m.group(1).strip()
-                # Clean wrapping words like 'city' in Hebrew
-                city = re.sub(r"^(עיר|בעיר)\s+", "", city).strip()
-                # Remove trailing words that might be miscaptured
-                city = city.replace('יש', '').strip()
-                # Remove quotes
-                city = city.strip("'\"")
 
-            if city:
-                safe_city = city.replace("'", "''").strip()
-                sql = (
-                    "SELECT COUNT(*) AS customer_count FROM ClientsBot2025 "
-                    f"WHERE TRIM(city) = '{safe_city}' OR TRIM(city) LIKE '{safe_city}%'"
-                )
-                return {
-                    'success': True,
-                    'sql': sql,
-                    'tables': ['ClientsBot2025'],
-                    'description': f"ספירת לקוחות בעיר {city}",
-                    'raw_response': None,
-                    'error': None,
-                }
-            else:
-                sql = "SELECT COUNT(*) AS customer_count FROM ClientsBot2025;"
-                return {
-                    'success': True,
-                    'sql': sql,
-                    'tables': ['ClientsBot2025'],
-                    'description': "סך כל הלקוחות",
-                    'raw_response': None,
-                    'error': None,
-                }
-        return None
 
     def _extract_json_block(self, text: str) -> Optional[str]:
         if not text:
             return None
-        import re
         fence = re.search(r"```\s*json\s*(\{[\s\S]*?\})\s*```", text, re.IGNORECASE)
         if fence:
             return fence.group(1)
@@ -385,7 +323,6 @@ class AIService:
     def _extract_select_sql(self, text: str) -> Optional[str]:
         if not text:
             return None
-        import re
         m = re.search(r"(?is)\bselect\b[\s\S]+?\bfrom\b[\s\S]+?(?:;|$)", text)
         if not m:
             return None
@@ -585,28 +522,7 @@ class AIService:
             logger.error(f"❌ Error generating response after {elapsed:.2f} sec: {str(e)}")
             return f"אירעה שגיאה ביצירת התשובה: {str(e)}"
 
-    def _extract_city_from_question(self, question: str) -> Optional[str]:
-        if not question:
-            return None
-        import re
-        q = (question or "").strip()
-        # Pattern A: space-then-Hebrew-preposition until end
-        m = re.search(r"\sב([^?.!,]+)$", q)
-        city = None
-        if m:
-            city = m.group(1)
-        else:
-            # Pattern B: standalone token starting with Hebrew preposition even without a leading space
-            m2 = re.search(r"\bב([\u0590-\u05FFA-Za-z\-\s]+)[?!. ,]*$", q)
-            if m2:
-                city = m2.group(1)
-        if not city:
-            return None
-        city = city.strip()
-        city = re.sub(r"^(עיר|בעיר)\s+", "", city).strip()
-        city = city.replace('יש', '').strip()
-        city = city.strip("'\"")
-        return city or None
+
 
     def _format_explicit_answer(self, question: str, query_results: Dict[str, Any]) -> Optional[str]:
         """

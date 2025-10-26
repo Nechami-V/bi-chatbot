@@ -20,7 +20,7 @@ Available Endpoints
 - GET  /              : Root endpoint with system info
 - POST /ask           : Main chatbot endpoint (authenticated)
 - POST /voice-query   : Voice chatbot endpoint (audio files, authenticated)
-- POST /ask-demo      : Demo chatbot endpoint (no authentication)
+
 - POST /auth/login    : User login
 - GET  /auth/me       : Get current user info
 - GET  /health        : Health check endpoint
@@ -31,9 +31,8 @@ Author: BI Chatbot Team
 Version: 3.0.0 - With Authentication
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
@@ -132,5 +131,10 @@ app.include_router(auth_router, tags=["Authentication"])
 
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8081)
+    import os
+    
+    # Read port from environment or default to 8002
+    host = os.getenv("API_HOST", "0.0.0.0")
+    port = int(os.getenv("API_PORT", "8002"))
+    
+    uvicorn.run(app, host=host, port=port)
