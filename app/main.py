@@ -131,5 +131,10 @@ app.include_router(auth_router, tags=["Authentication"])
 
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8081)
+    import os
+    
+    # Read port from environment or default to 8002
+    host = os.getenv("API_HOST", "0.0.0.0")
+    port = int(os.getenv("API_PORT", "8002"))
+    
+    uvicorn.run(app, host=host, port=port)
