@@ -20,7 +20,7 @@ Available Endpoints
 - GET  /              : Root endpoint with system info
 - POST /ask           : Main chatbot endpoint (authenticated)
 - POST /voice-query   : Voice chatbot endpoint (audio files, authenticated)
-- POST /ask-demo      : Demo chatbot endpoint (no authentication)
+
 - POST /auth/login    : User login
 - GET  /auth/me       : Get current user info
 - GET  /health        : Health check endpoint
