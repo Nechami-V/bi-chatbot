@@ -19,6 +19,7 @@ from app.models.user import User
 from app.schemas.chat import QueryRequest, QueryResponse
 from app.simple_config import config
 from app.context_memory import context_store
+from app.conversation_history import conversation_history
 from app.followup import is_follow_up, summarize_answer, build_context_block
 from app.query_ast import HebrewQueryParser, create_sql_generator
 
@@ -51,12 +52,16 @@ class ChatbotService:
         t0 = time.perf_counter()
         timings = {}
 
-        # Retrieve previous context for follow-up detection
+        # OLD SYSTEM: Retrieve previous context for follow-up detection
         prev_context = context_store.get(user_id)
         prev_question = prev_context.prev_question if prev_context else None
         
-        # Detect if this is a follow-up question
+        # OLD SYSTEM: Detect if this is a follow-up question
         is_followup = is_follow_up(question, prev_question)
+        
+        # NEW SYSTEM: Get conversation history for OpenAI context (testing phase)
+        conversation_context = conversation_history.build_context_for_openai(user_id)
+        logger.debug(f"NEW: Built conversation context with {len(conversation_context)} messages")
         
         if is_followup and prev_context:
             logger.info(f"Follow-up detected for user {user_id}")
