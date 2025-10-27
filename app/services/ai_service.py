@@ -156,24 +156,24 @@ class AIService:
 
         return schema
 
-    def generate_sql(self, question: str, session_messages: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    def generate_sql(self, question: str, context_text: str = "") -> Dict[str, Any]:
         """
         Generate SQL query from natural language question.
         
         Args:
             question: User's question in Hebrew
-            session_messages: Optional session context messages for OpenAI
+            context_text: Optional context text to add to prompt
             
         Returns:
             Dict with success, sql, and optional error
         """
         start_time = time.perf_counter()
 
-        prompt = self._build_sql_prompt(question)
+        prompt = self._build_sql_prompt(question, context_text)
         last_raw = None
         try:
             t0 = time.perf_counter()
-            response = self._call_openai_for_sql(prompt, session_messages)
+            response = self._call_openai_for_sql(prompt)
             elapsed = time.perf_counter() - t0
             logger.info(f"SQL generation via OpenAI took {elapsed:.2f} seconds")
             last_raw = response
@@ -200,12 +200,13 @@ class AIService:
             "raw_response": last_raw,
             "duration_sec": total,
         }
-    def _build_sql_prompt(self, question: str) -> str:
+    def _build_sql_prompt(self, question: str, context_text: str = "") -> str:
         """
         Build SQL generation prompt.
         
         Args:
             question: User's question in Hebrew
+            context_text: Optional conversation context to add
             
         Returns:
             Formatted prompt string
@@ -243,7 +244,9 @@ class AIService:
             "• 'הזמנות שנה שעברה' → SELECT COUNT(*) FROM orders WHERE strftime('%Y', order_date) = strftime('%Y', 'now', '-1 year')\n\n"
         )
         
-        # Context is now handled through session_messages in OpenAI call
+        # Add conversation context if available
+        if context_text.strip():
+            base_prompt += context_text + "\n"
         
         base_prompt += (
             f"QUESTION (Hebrew): {question}\n\n"
@@ -281,19 +284,14 @@ class AIService:
         
         return tables_schema
 
-    def _call_openai_for_sql(self, prompt: str, session_messages: Optional[List[Dict[str, str]]] = None, mode: str = "strict") -> str:
+    def _call_openai_for_sql(self, prompt: str, mode: str = "strict") -> str:
         sql_tokens = min(256, getattr(config, "MAX_TOKENS", 1000))
         
-        # Build messages with session context
-        messages = [{"role": "system", "content": self.system_prompt}]
-        
-        # Add session context if available
-        if session_messages:
-            messages.extend(session_messages)
-            logger.info(f"Added {len(session_messages)} session messages for context")
-        
-        # Add current prompt
-        messages.append({"role": "user", "content": prompt})
+        # Simple messages - context is now in the prompt itself
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": prompt}
+        ]
         
         logger.info(f"Sending to OpenAI with {len(messages)} total messages")
         logger.info(f"Sending to OpenAI - Prompt: {prompt[:200]}...")
@@ -406,14 +404,14 @@ class AIService:
             self.db.rollback()
             return {"success": False, "error": str(e), "duration_sec": time.perf_counter() - start_time}
 
-    def generate_response(self, question: str, query_results: Dict[str, Any], session_context: Optional[List[Dict[str, str]]] = None) -> str:
+    def generate_response(self, question: str, query_results: Dict[str, Any], context_text: str = "") -> str:
         """
         Generate natural language response in Hebrew.
         
         Args:
             question: User's question in Hebrew
             query_results: Query execution results
-            session_context: Optional session messages for context
+            context_text: Optional conversation context
             
         Returns:
             Natural language answer in Hebrew
@@ -431,7 +429,9 @@ class AIService:
                 "Do not write generic phrases like 'נמצאו X תוצאות' or 'הנתונים מצביעים על'; be specific and data-grounded.\n"
             )
             
-            # Session context will be handled in OpenAI messages, not in prompt
+            # Add conversation context if available
+            if context_text.strip():
+                base_prompt += context_text + "\n"
             
             base_prompt += (
                 f"Question (Hebrew): {question}\n"

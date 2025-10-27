@@ -50,14 +50,14 @@ class ChatbotService:
         t0 = time.perf_counter()
         timings = {}
 
-        # SIMPLE SYSTEM: Get session context for OpenAI (replaces complex follow-up detection)
-        session_context = session_memory.get_context_messages(user_id)
-        logger.debug(f"Retrieved {len(session_context)} context messages for natural OpenAI context")
+        # SIMPLE SYSTEM: Get session context as text for prompt injection
+        context_text = session_memory.get_context_text(user_id)
+        logger.debug(f"Retrieved context text for user {user_id}: {bool(context_text)}")
 
         try:
-            # Generate SQL with simple session context
+            # Generate SQL with simple context text
             t1 = time.perf_counter()
-            sql_result = await self._generate_sql(question, session_context=session_context)
+            sql_result = await self._generate_sql(question, context_text=context_text)
             timings['sql_gen'] = (time.perf_counter() - t1) * 1000
 
             if not sql_result.get('success'):
@@ -83,7 +83,7 @@ class ChatbotService:
             else:
                 # Always craft a natural-language sentence via AI
                 t3 = time.perf_counter()
-                ai_answer = await self._generate_response(question, query_results, session_context=session_context)
+                ai_answer = await self._generate_response(question, query_results, context_text=context_text)
                 timings['answer_gen'] = (time.perf_counter() - t3) * 1000
 
             # Update session memory for natural OpenAI context
@@ -107,13 +107,13 @@ class ChatbotService:
             logger.exception("Unexpected error during question processing")
             return self._error_response(question, str(e), "Unexpected")
 
-    async def _generate_sql(self, question: str, session_context: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    async def _generate_sql(self, question: str, context_text: str = "") -> Dict[str, Any]:
         """Generate SQL using OpenAI as primary method (user preference)"""
         
         # Use OpenAI as primary method per user request
         try:
             logger.info(f"Using OpenAI for SQL generation (user preference): {question}")
-            result = self.ai_service.generate_sql(question, session_messages=session_context)
+            result = self.ai_service.generate_sql(question, context_text=context_text)
             if result.get('success'):
                 result['method'] = 'openai'
                 return result
@@ -157,10 +157,10 @@ class ChatbotService:
             logger.error(f"DB execution error: {e}")
             return {'success': False, 'error': str(e)}
 
-    async def _generate_response(self, question: str, results: Dict[str, Any], session_context: Optional[List[Dict[str, str]]] = None) -> str:
+    async def _generate_response(self, question: str, results: Dict[str, Any], context_text: str = "") -> str:
         """Generate response with optional context for follow-up questions"""
         try:
-            return self.ai_service.generate_response(question, results, session_context=session_context)
+            return self.ai_service.generate_response(question, results, context_text=context_text)
         except Exception as e:
             logger.error(f"Response generation error: {e}")
             return f"נמצאו {results.get('row_count', 0)} תוצאות אך אירעה שגיאה ביצירת תשובה."

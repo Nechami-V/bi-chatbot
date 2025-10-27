@@ -38,9 +38,28 @@ class SimpleSessionMemory:
             self._maybe_cleanup()
     
     def get_context_messages(self, user_id: str) -> List[Dict[str, str]]:
-        """Get recent messages for OpenAI context"""
+        """Get recent messages for OpenAI context (legacy method)"""
         with self._lock:
             return self._sessions.get(user_id, []).copy()
+    
+    def get_context_text(self, user_id: str) -> str:
+        """Get recent conversation context as simple text for prompt injection"""
+        with self._lock:
+            messages = self._sessions.get(user_id, [])
+            if not messages:
+                return ""
+            
+            context_parts = []
+            for i in range(0, len(messages), 2):
+                if i + 1 < len(messages):
+                    question = messages[i]["content"]
+                    answer = messages[i + 1]["content"]
+                    context_parts.append(f"Previous Q: {question}")
+                    context_parts.append(f"Previous A: {answer}")
+            
+            if context_parts:
+                return "\n\nRecent conversation context:\n" + "\n".join(context_parts) + "\n"
+            return ""
     
     def clear_user(self, user_id: str):
         """Clear specific user session"""
