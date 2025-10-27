@@ -16,12 +16,11 @@ Author: BI Chatbot Team
 Version: 2.1.0
 """
 
-import logging
 import json
 import logging
 import re
 import time
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 from openai import OpenAI
 from sqlalchemy.orm import Session
@@ -157,24 +156,24 @@ class AIService:
 
         return schema
 
-    def generate_sql(self, question: str, context_block: Optional[str] = None) -> Dict[str, Any]:
+    def generate_sql(self, question: str, session_messages: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
         """
         Generate SQL query from natural language question.
         
         Args:
             question: User's question in Hebrew
-            context_block: Optional compact context for follow-up questions
+            session_messages: Optional session context messages for OpenAI
             
         Returns:
             Dict with success, sql, and optional error
         """
         start_time = time.perf_counter()
 
-        prompt = self._build_sql_prompt(question, context_block)
+        prompt = self._build_sql_prompt(question)
         last_raw = None
         try:
             t0 = time.perf_counter()
-            response = self._call_openai_for_sql(prompt)
+            response = self._call_openai_for_sql(prompt, session_messages)
             elapsed = time.perf_counter() - t0
             logger.info(f"SQL generation via OpenAI took {elapsed:.2f} seconds")
             last_raw = response
@@ -201,13 +200,12 @@ class AIService:
             "raw_response": last_raw,
             "duration_sec": total,
         }
-    def _build_sql_prompt(self, question: str, context_block: Optional[str] = None) -> str:
+    def _build_sql_prompt(self, question: str) -> str:
         """
-        Build SQL generation prompt with optional follow-up context.
+        Build SQL generation prompt.
         
         Args:
             question: User's question in Hebrew
-            context_block: Optional compact context for follow-up questions
             
         Returns:
             Formatted prompt string
@@ -245,9 +243,7 @@ class AIService:
             "• 'הזמנות שנה שעברה' → SELECT COUNT(*) FROM orders WHERE strftime('%Y', order_date) = strftime('%Y', 'now', '-1 year')\n\n"
         )
         
-        # Inject context block if this is a follow-up
-        if context_block:
-            base_prompt += f"\n{context_block}\n\n"
+        # Context is now handled through session_messages in OpenAI call
         
         base_prompt += (
             f"QUESTION (Hebrew): {question}\n\n"
@@ -285,12 +281,21 @@ class AIService:
         
         return tables_schema
 
-    def _call_openai_for_sql(self, prompt: str, mode: str = "strict") -> str:
+    def _call_openai_for_sql(self, prompt: str, session_messages: Optional[List[Dict[str, str]]] = None, mode: str = "strict") -> str:
         sql_tokens = min(256, getattr(config, "MAX_TOKENS", 1000))
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": prompt},
-        ]
+        
+        # Build messages with session context
+        messages = [{"role": "system", "content": self.system_prompt}]
+        
+        # Add session context if available
+        if session_messages:
+            messages.extend(session_messages)
+            logger.info(f"Added {len(session_messages)} session messages for context")
+        
+        # Add current prompt
+        messages.append({"role": "user", "content": prompt})
+        
+        logger.info(f"Sending to OpenAI with {len(messages)} total messages")
         logger.info(f"Sending to OpenAI - Prompt: {prompt[:200]}...")
         response = self.client.chat.completions.create(
             model=config.OPENAI_MODEL,
@@ -401,14 +406,14 @@ class AIService:
             self.db.rollback()
             return {"success": False, "error": str(e), "duration_sec": time.perf_counter() - start_time}
 
-    def generate_response(self, question: str, query_results: Dict[str, Any], context_block: Optional[str] = None) -> str:
+    def generate_response(self, question: str, query_results: Dict[str, Any], session_context: Optional[List[Dict[str, str]]] = None) -> str:
         """
         Generate natural language response in Hebrew.
         
         Args:
             question: User's question in Hebrew
             query_results: Query execution results
-            context_block: Optional compact context for follow-up questions
+            session_context: Optional session messages for context
             
         Returns:
             Natural language answer in Hebrew
@@ -426,9 +431,7 @@ class AIService:
                 "Do not write generic phrases like 'נמצאו X תוצאות' or 'הנתונים מצביעים על'; be specific and data-grounded.\n"
             )
             
-            # Inject context block if this is a follow-up
-            if context_block:
-                base_prompt += f"\n{context_block}\n\n"
+            # Session context will be handled in OpenAI messages, not in prompt
             
             base_prompt += (
                 f"Question (Hebrew): {question}\n"

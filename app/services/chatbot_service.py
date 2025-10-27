@@ -19,9 +19,6 @@ from app.models.user import User
 from app.schemas.chat import QueryRequest, QueryResponse
 from app.simple_config import config
 from app.simple_memory import session_memory
-# OLD COMPLEX SYSTEM - will be removed:
-from app.context_memory import context_store
-from app.followup import is_follow_up, summarize_answer, build_context_block
 from app.query_ast import HebrewQueryParser, create_sql_generator
 
 logger = logging.getLogger(__name__)
@@ -53,34 +50,14 @@ class ChatbotService:
         t0 = time.perf_counter()
         timings = {}
 
-        # OLD SYSTEM: Retrieve previous context for follow-up detection
-        prev_context = context_store.get(user_id)
-        prev_question = prev_context.prev_question if prev_context else None
-        
-        # OLD SYSTEM: Detect if this is a follow-up question
-        is_followup = is_follow_up(question, prev_question)
-        
-        # NEW SIMPLE SYSTEM: Get session context for OpenAI
+        # SIMPLE SYSTEM: Get session context for OpenAI (replaces complex follow-up detection)
         session_context = session_memory.get_context_messages(user_id)
-        logger.debug(f"SIMPLE: Retrieved {len(session_context)} context messages")
-        
-        if is_followup and prev_context:
-            logger.info(f"Follow-up detected for user {user_id}")
-            # Build compact context block for prompt
-            context_block = build_context_block(
-                prev_question=prev_context.prev_question,
-                prev_answer_summary=prev_context.prev_answer_summary,
-                prev_sql_snippet=prev_context.prev_sql_snippet
-            )
-        else:
-            context_block = None
-            logger.debug(f"Standalone question (is_followup={is_followup}, has_context={prev_context is not None})")
+        logger.debug(f"Retrieved {len(session_context)} context messages for natural OpenAI context")
 
         try:
-            # Generate SQL with simple context
+            # Generate SQL with simple session context
             t1 = time.perf_counter()
-            # Use both old and new context (transition phase)
-            sql_result = await self._generate_sql(question, context_block, session_context)
+            sql_result = await self._generate_sql(question, session_context=session_context)
             timings['sql_gen'] = (time.perf_counter() - t1) * 1000
 
             if not sql_result.get('success'):
@@ -106,21 +83,12 @@ class ChatbotService:
             else:
                 # Always craft a natural-language sentence via AI
                 t3 = time.perf_counter()
-                ai_answer = await self._generate_response(question, query_results, context_block)
+                ai_answer = await self._generate_response(question, query_results, session_context=session_context)
                 timings['answer_gen'] = (time.perf_counter() - t3) * 1000
 
-            # Update context for next question (OLD SYSTEM)
-            answer_summary = summarize_answer(ai_answer, max_length=100)
-            context_store.set(
-                user_id=user_id,
-                question=question,
-                answer_summary=answer_summary,
-                sql_snippet=sql_query
-            )
-            
-            # Update simple session memory (NEW SYSTEM)
+            # Update session memory for natural OpenAI context
             session_memory.add_exchange(user_id, question, ai_answer)
-            logger.debug(f"Updated both old and new context for user {user_id}")
+            logger.debug(f"Updated session memory for user {user_id}")
 
             total_ms = (time.perf_counter() - t0) * 1000
             timings['total'] = total_ms
@@ -139,13 +107,13 @@ class ChatbotService:
             logger.exception("Unexpected error during question processing")
             return self._error_response(question, str(e), "Unexpected")
 
-    async def _generate_sql(self, question: str, context_block: Optional[str] = None, session_context: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    async def _generate_sql(self, question: str, session_context: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
         """Generate SQL using OpenAI as primary method (user preference)"""
         
         # Use OpenAI as primary method per user request
         try:
             logger.info(f"Using OpenAI for SQL generation (user preference): {question}")
-            result = self.ai_service.generate_sql(question, context_block)
+            result = self.ai_service.generate_sql(question, session_messages=session_context)
             if result.get('success'):
                 result['method'] = 'openai'
                 return result
@@ -189,10 +157,10 @@ class ChatbotService:
             logger.error(f"DB execution error: {e}")
             return {'success': False, 'error': str(e)}
 
-    async def _generate_response(self, question: str, results: Dict[str, Any], context_block: Optional[str] = None) -> str:
+    async def _generate_response(self, question: str, results: Dict[str, Any], session_context: Optional[List[Dict[str, str]]] = None) -> str:
         """Generate response with optional context for follow-up questions"""
         try:
-            return self.ai_service.generate_response(question, results, context_block)
+            return self.ai_service.generate_response(question, results, session_context=session_context)
         except Exception as e:
             logger.error(f"Response generation error: {e}")
             return f"נמצאו {results.get('row_count', 0)} תוצאות אך אירעה שגיאה ביצירת תשובה."
