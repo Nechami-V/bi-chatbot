@@ -8,15 +8,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timedelta
+import jwt
+from jwt import ExpiredSignatureError, InvalidTokenError
 
-try:
-    import jwt
-    JWT_AVAILABLE = True
-except ImportError:
-    JWT_AVAILABLE = False
-    # Simple fallback token system
-    import base64
-    import json
 from app.services.user_service import user_db
 from app.services.permission_service import PermissionManager
 from app.models.user import User
@@ -46,65 +40,34 @@ class UserInfoResponse(BaseModel):
     permissions: dict
 
 # Helper functions
-def create_access_token(user_id: int) -> str:
-    """Create access token (JWT or simple)"""
+def create_access_token(user_id: int, email: str) -> str:
+    """Create JWT access token with user id and email."""
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    if JWT_AVAILABLE:
-        to_encode = {"user_id": user_id, "exp": expire}
-        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-        return encoded_jwt
-    else:
-        # Simple token fallback
-        token_data = {
-            "user_id": user_id, 
-            "exp": expire.timestamp()
-        }
-        token_json = json.dumps(token_data)
-        token_b64 = base64.b64encode(token_json.encode()).decode()
-        return f"simple_{token_b64}"
+    payload = {"user_id": user_id, "email": email, "exp": expire}
+    encoded_jwt = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
-    """Verify token and return user"""
+    """Verify JWT and return user"""
     token = credentials.credentials
-    
     try:
-        if JWT_AVAILABLE and not token.startswith("simple_"):
-            # JWT token
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            user_id = payload.get("user_id")
-        else:
-            # Simple token
-            if token.startswith("simple_"):
-                token = token[7:]  # Remove "simple_" prefix
-            
-            token_json = base64.b64decode(token.encode()).decode()
-            token_data = json.loads(token_json)
-            
-            # Check expiration
-            if datetime.utcnow().timestamp() > token_data["exp"]:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token expired",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-            
-            user_id = token_data.get("user_id")
-        
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-            
-    except Exception as e:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("user_id")
+        if not user_id:
+            raise InvalidTokenError("Missing user_id")
+    except ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     user = user_db.get_user_by_id(user_id)
     if user is None:
         raise HTTPException(
@@ -128,7 +91,7 @@ async def login(login_data: LoginRequest):
         )
     
     # Create access token
-    access_token = create_access_token(user.id)
+    access_token = create_access_token(user.id, user.email)
     
     # Get permissions
     permissions = PermissionManager.get_permission_info(user)
