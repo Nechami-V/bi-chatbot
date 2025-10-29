@@ -21,6 +21,12 @@ class Config:
 
     # --- Database Settings ---
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/bi_database.db")
+    # External Users DB (e.g., SQL Server via pyodbc)
+    USER_DATABASE_URL = os.getenv("USER_DATABASE_URL", "mssql+pyodbc://@localhost\\SQLEXPRESS/CHATBOTBI?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes&TrustServerCertificate=yes")
+
+    # --- Security / Auth ---
+    SECRET_KEY = os.getenv("SECRET_KEY", "change-this-in-production")
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
     # --- Business Tables ---
     BUSINESS_TABLES = ["ClientsBot2025", "OrdersBot2025", "ItemsBot2025", "SalesBot2025"]

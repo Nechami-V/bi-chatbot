@@ -39,8 +39,8 @@ def is_follow_up(question: str, prev_question: Optional[str]) -> bool:
     """
     if not prev_question:
         logger.debug("No previous question - not a follow-up")
-        return False
-    
+    return False
+
     # Normalize whitespace
     question = question.strip()
     

@@ -20,12 +20,13 @@ except ImportError:
 from app.services.user_service import user_db
 from app.services.permission_service import PermissionManager
 from app.models.user import User
+from app.simple_config import config
 
 # Security
 security = HTTPBearer()
-SECRET_KEY = "your-secret-key-here"  # In production, use environment variable
+SECRET_KEY = config.SECRET_KEY  # Loaded from .env via simple_config
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = config.ACCESS_TOKEN_EXPIRE_MINUTES
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 

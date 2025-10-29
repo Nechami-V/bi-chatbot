@@ -16,12 +16,11 @@ Author: BI Chatbot Team
 Version: 2.1.0
 """
 
-import logging
 import json
 import logging
 import re
 import time
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 from openai import OpenAI
 from sqlalchemy.orm import Session
@@ -157,20 +156,20 @@ class AIService:
 
         return schema
 
-    def generate_sql(self, question: str, context_block: Optional[str] = None) -> Dict[str, Any]:
+    def generate_sql(self, question: str, context_text: str = "") -> Dict[str, Any]:
         """
         Generate SQL query from natural language question.
         
         Args:
             question: User's question in Hebrew
-            context_block: Optional compact context for follow-up questions
+            context_text: Optional context text to add to prompt
             
         Returns:
             Dict with success, sql, and optional error
         """
         start_time = time.perf_counter()
 
-        prompt = self._build_sql_prompt(question, context_block)
+        prompt = self._build_sql_prompt(question, context_text)
         last_raw = None
         try:
             t0 = time.perf_counter()
@@ -201,13 +200,13 @@ class AIService:
             "raw_response": last_raw,
             "duration_sec": total,
         }
-    def _build_sql_prompt(self, question: str, context_block: Optional[str] = None) -> str:
+    def _build_sql_prompt(self, question: str, context_text: str = "") -> str:
         """
-        Build SQL generation prompt with optional follow-up context.
+        Build SQL generation prompt.
         
         Args:
             question: User's question in Hebrew
-            context_block: Optional compact context for follow-up questions
+            context_text: Optional conversation context to add
             
         Returns:
             Formatted prompt string
@@ -245,9 +244,9 @@ class AIService:
             "• 'הזמנות שנה שעברה' → SELECT COUNT(*) FROM orders WHERE strftime('%Y', order_date) = strftime('%Y', 'now', '-1 year')\n\n"
         )
         
-        # Inject context block if this is a follow-up
-        if context_block:
-            base_prompt += f"\n{context_block}\n\n"
+        # Add conversation context if available
+        if context_text.strip():
+            base_prompt += context_text + "\n"
         
         base_prompt += (
             f"QUESTION (Hebrew): {question}\n\n"
@@ -287,10 +286,14 @@ class AIService:
 
     def _call_openai_for_sql(self, prompt: str, mode: str = "strict") -> str:
         sql_tokens = min(256, getattr(config, "MAX_TOKENS", 1000))
+        
+        # Simple messages - context is now in the prompt itself
         messages = [
             {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": prompt},
+            {"role": "user", "content": prompt}
         ]
+        
+        logger.info(f"Sending to OpenAI with {len(messages)} total messages")
         logger.info(f"Sending to OpenAI - Prompt: {prompt[:200]}...")
         response = self.client.chat.completions.create(
             model=config.OPENAI_MODEL,
@@ -401,14 +404,14 @@ class AIService:
             self.db.rollback()
             return {"success": False, "error": str(e), "duration_sec": time.perf_counter() - start_time}
 
-    def generate_response(self, question: str, query_results: Dict[str, Any], context_block: Optional[str] = None) -> str:
+    def generate_response(self, question: str, query_results: Dict[str, Any], context_text: str = "") -> str:
         """
         Generate natural language response in Hebrew.
         
         Args:
             question: User's question in Hebrew
             query_results: Query execution results
-            context_block: Optional compact context for follow-up questions
+            context_text: Optional conversation context
             
         Returns:
             Natural language answer in Hebrew
@@ -426,9 +429,9 @@ class AIService:
                 "Do not write generic phrases like 'נמצאו X תוצאות' or 'הנתונים מצביעים על'; be specific and data-grounded.\n"
             )
             
-            # Inject context block if this is a follow-up
-            if context_block:
-                base_prompt += f"\n{context_block}\n\n"
+            # Add conversation context if available
+            if context_text.strip():
+                base_prompt += context_text + "\n"
             
             base_prompt += (
                 f"Question (Hebrew): {question}\n"
