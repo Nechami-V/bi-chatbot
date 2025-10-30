@@ -34,3 +34,11 @@ class QueryResponse(BaseModel):
         None,
         description="Detailed timings in milliseconds: { sql_gen, db_exec, answer_gen, total }",
     )
+
+
+class PackResponse(BaseModel):
+    """Unified output when using prompt packs"""
+
+    short_answer: str
+    sql_export: str
+    sql_ratio: str

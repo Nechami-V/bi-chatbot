@@ -15,7 +15,7 @@ pyodbc==4.0.39  # For SQL Server connection
 bcrypt==3.2.2  # Compatible with many stacks; used for password verification
 
 # AI & NLP
-openai==0.27.5
+openai>=1.0.0
 spacy==3.5.3
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.5.0/en_core_web_sm-3.5.0-py3-none-any.whl
 hebrew-nlp @ git+https://github.com/avilum/hebrew-nlp.git
