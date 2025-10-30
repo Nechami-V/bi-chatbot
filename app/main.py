@@ -1,140 +1,58 @@
-"""
-BI Chatbot API - Main Application Entry Point with Authentication
-
-This FastAPI application powers the BI Chatbot system with user authentication
-and permissions. It enables authorized users to ask business intelligence 
-questions in Hebrew and receive intelligent answers based on database analysis.
-
-Key Capabilities
-----------------
-1. User authentication with JWT tokens
-2. Permission-based access control
-3. Hebrew natural language processing
-4. Automatic SQL query generation
-5. Database execution and results analysis
-6. Natural language response generation
-7. RESTful API with auto-generated documentation
-
-Available Endpoints
--------------------
-- GET  /              : Root endpoint with system info
-- POST /ask           : Main chatbot endpoint (authenticated)
-- POST /voice-query   : Voice chatbot endpoint (audio files, authenticated)
-
-- POST /auth/login    : User login
-- GET  /auth/me       : Get current user info
-- GET  /health        : Health check endpoint
-- Swagger UI          : /docs
-- ReDoc               : /redoc
-
-Author: BI Chatbot Team
-Version: 3.0.0 - With Authentication
-"""
-
-from fastapi import FastAPI, Request, Response
+import logging
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from dotenv import load_dotenv
 
-# Load environment variables (expects .env file)
-load_dotenv()
-
-# Import database utilities and services
+# Local imports
 from app.db.database import init_db
-
-# Import API routes
-from app.api.system import router as system_router
-from app.api.chat import router as chat_router
-from app.api.voice import router as voice_router
 from app.api.auth import router as auth_router
 
 
+# Logger
+logger = logging.getLogger(__name__)
+
+
+# FastAPI app
 app = FastAPI(
     title="BI Chatbot API",
-    description=(
-        """AI-powered Business Intelligence Chatbot API.\n\n"
-        "Ask business questions in Hebrew and receive intelligent answers "
-        "based on database analysis. The system uses advanced AI models to "
-        "understand natural language, generate SQL, execute queries, and "
-        "produce natural language responses."""
-    ),
-    version="3.0.0-auth",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    description="API for BI queries and authentication",
+    version="0.1.0",
 )
 
-# Enable CORS (update allow_origins for production)
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000", 
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-        "null"  # For file:// protocol
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Additional CORS handling for complex requests
-@app.middleware("http")
-async def cors_handler(request: Request, call_next):
-    # Handle preflight OPTIONS requests
-    if request.method == "OPTIONS":
-        headers = {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-        }
-        return Response(headers=headers)
-    
-    # Process the request
-    try:
-        response = await call_next(request)
-        
-        # Add CORS headers to response
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        
-        return response
-    except Exception as e:
-        # Return error with CORS headers
-        return JSONResponse(
-            status_code=500,
-            content={"detail": str(e)},
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Credentials": "true",
-            }
-        )
 
-
+# Startup
 @app.on_event("startup")
-async def startup_event() -> None:
-    """Run initialization tasks when the API starts"""
-
-    # Temporarily disable init_db to fix startup issue
-    # init_db()
-    print("Server starting - skipping database initialization for now")
+async def startup_event():
+    init_db()
+    logger.info("Application startup complete")
 
 
-# Mount all API routes
-app.include_router(system_router, tags=["System"])
-app.include_router(chat_router, tags=["Chat"])
-app.include_router(voice_router, tags=["Voice"])
-app.include_router(auth_router, tags=["Authentication"])
+# Routers
+app.include_router(auth_router)
 
 
-if __name__ == "__main__":
-    import uvicorn
-    import os
-    
-    # Read port from environment or default to 8002
-    host = os.getenv("API_HOST", "0.0.0.0")
-    port = int(os.getenv("API_PORT", "8002"))
-    
-    uvicorn.run(app, host=host, port=port)
+# Health
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "version": "0.1.0"}
+
+
+# Root
+@app.get("/")
+def root():
+    return {
+        "message": "BI Chatbot API is running",
+        "endpoints": [
+            {"path": "/auth/login", "method": "POST", "description": "Authenticate and get token"},
+            {"path": "/auth/me", "method": "GET", "description": "Current user info"},
+        ],
+    }

@@ -1,68 +1,88 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from ..db.database import Base
-import hashlib
 
-# Optional bcrypt verification if available
+# Optional bcrypt verification via bcrypt library only (avoid passlib incompat issues)
 try:
-    import bcrypt as _bcrypt
+    import bcrypt as _BCRYPT  # type: ignore
     _BCRYPT_AVAILABLE = True
 except Exception:
+    _BCRYPT = None
     _BCRYPT_AVAILABLE = False
 
-
 class User(Base):
-    """User model used as a DTO for auth as well.
-
-    Note: In external DB mode we may hydrate instances from raw queries
-    rather than persisting via this ORM mapping.
-    """
+    """User model for authentication and authorization."""
     __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String)
+    is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)
+    # External users integration fields
+    permission_group = Column(String, default="user", nullable=False)
+    is_manager = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
+    
+    # Relationships
+    api_keys = relationship("APIKey", back_populates="user")
+    
+    def __repr__(self):
+        return f"<User {self.username}>"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    first_name = Column(String(100), nullable=False, comment="First name")
-    last_name = Column(String(100), nullable=False, comment="Last name")
-    phone = Column(String(20), nullable=True, comment="Phone number")
-    email = Column(String(150), nullable=False, unique=True, comment="Email address")
-    password = Column(String(255), nullable=False, comment="Password hash or bcrypt hash")
-    is_manager = Column(Boolean, default=False, comment="Manager flag (T/F)")
-    permission_group = Column(String(50), nullable=False, comment="Permission group")
-
-    @property
-    def full_name(self):
-        return f"{self.first_name} {self.last_name}".strip()
+    # Compatibility helpers for external user integration
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "email": self.email,
+            "full_name": self.full_name,
+            "is_active": self.is_active,
+            "is_superuser": self.is_superuser,
+            "permission_group": self.permission_group,
+            "is_manager": self.is_manager,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_login": self.last_login.isoformat() if self.last_login else None,
+        }
 
     def check_password(self, password: str) -> bool:
         """Verify password against stored hash.
 
-        - If the stored value looks like a bcrypt hash ($2b$...), verify with bcrypt (when available).
-        - Otherwise, fall back to comparing SHA256(password).
+        Supports bcrypt when stored hash starts with "$2" (using bcrypt module),
+        otherwise falls back to raw equality for legacy/pre-hashed inputs.
         """
-        stored = self.password or ""
-
-        if isinstance(stored, str) and stored.startswith("$2") and _BCRYPT_AVAILABLE:
+        if (
+            isinstance(self.hashed_password, str)
+            and self.hashed_password
+            and self.hashed_password.startswith("$2")
+            and _BCRYPT_AVAILABLE
+        ):
             try:
-                return _bcrypt.checkpw(password.encode("utf-8"), stored.encode("utf-8"))
+                return _BCRYPT.checkpw(password.encode("utf-8"), self.hashed_password.encode("utf-8"))
             except Exception:
                 return False
+        # Fallback: compare as-is (expects caller to hash consistently elsewhere)
+        return self.hashed_password == password
 
-        # Fallback to legacy SHA256
-        return stored == self.hash_password(password)
 
-    @staticmethod
-    def hash_password(password: str) -> str:
-        return hashlib.sha256(password.encode()).hexdigest()
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'first_name': getattr(self, 'first_name', None),
-            'last_name': getattr(self, 'last_name', None),
-            'full_name': self.full_name,
-            'email': getattr(self, 'email', None),
-            'phone': getattr(self, 'phone', None),
-            'is_manager': getattr(self, 'is_manager', False),
-            'permission_group': getattr(self, 'permission_group', None)
-        }
-
+class APIKey(Base):
+    """API Key model for programmatic access."""
+    __tablename__ = "api_keys"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_used_at = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, default=True)
+    
+    # Relationships
+    user = relationship("User", back_populates="api_keys")
+    
     def __repr__(self):
-        return f"<User {self.full_name} ({self.permission_group})>"
+        return f"<APIKey {self.key[:8]}...>"

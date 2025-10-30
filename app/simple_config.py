@@ -23,9 +23,21 @@ class Config:
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/bi_database.db")
     # External Users DB (e.g., SQL Server via pyodbc)
     USER_DATABASE_URL = os.getenv("USER_DATABASE_URL", "mssql+pyodbc://@localhost\\SQLEXPRESS/CHATBOTBI?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes&TrustServerCertificate=yes")
+    # Optional overrides for external users table/columns
+    USER_TABLE_NAME = os.getenv("USER_TABLE_NAME", "users")
+    USER_TABLE_SCHEMA = os.getenv("USER_TABLE_SCHEMA", "")
+    USER_COL_ID = os.getenv("USER_COL_ID", "")
+    USER_COL_EMAIL = os.getenv("USER_COL_EMAIL", "")
+    USER_COL_PASSWORD = os.getenv("USER_COL_PASSWORD", "")
+    USER_COL_FIRST_NAME = os.getenv("USER_COL_FIRST_NAME", "")
+    USER_COL_LAST_NAME = os.getenv("USER_COL_LAST_NAME", "")
+    USER_COL_PHONE = os.getenv("USER_COL_PHONE", "")
+    USER_COL_IS_MANAGER = os.getenv("USER_COL_IS_MANAGER", "")
+    USER_COL_PERMISSION_GROUP = os.getenv("USER_COL_PERMISSION_GROUP", "")
 
     # --- Security / Auth ---
-    SECRET_KEY = os.getenv("SECRET_KEY", "change-this-in-production")
+  # --- Auth Settings ---
+    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
     ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
     # --- Business Tables ---

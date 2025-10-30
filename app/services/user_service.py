@@ -10,9 +10,13 @@ instances (detached) so the rest of the app stays unchanged.
 
 from sqlalchemy import create_engine, text
 from typing import List, Optional, Dict, Tuple
+import logging
 
 from app.models.user import User
 from app.simple_config import config
+
+
+logger = logging.getLogger(__name__)
 
 
 class UserDatabase:
@@ -25,11 +29,13 @@ class UserDatabase:
         u = User()
         # Assuming row order per resolved mapping below
         u.id = row[0]
-        u.first_name = row[1]
-        u.last_name = row[2]
+        first_name = row[1]
+        last_name = row[2]
+        u.full_name = f"{first_name} {last_name}".strip() if (first_name or last_name) else None
         u.phone = row[3]
         u.email = row[4]
-        u.password = row[5]
+        # Store into the canonical field expected by User.check_password
+        u.hashed_password = row[5]
         u.is_manager = bool(row[6]) if row[6] is not None else False
         u.permission_group = row[7] or "user"
         return u
@@ -42,26 +48,31 @@ class UserDatabase:
         """
         dialect = self.engine.dialect.name
 
-        # Get schema of 'users' table
-        table_schema = None
-        try:
-            rs = conn.execute(text(
-                "SELECT TOP 1 TABLE_SCHEMA FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'users'"
-                if dialect == "mssql" else
-                "SELECT TABLE_SCHEMA FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'users' LIMIT 1"
-            ))
-            row = rs.fetchone()
-            if row and row[0]:
-                table_schema = row[0]
-        except Exception:
-            table_schema = None
+        # Prefer configured table/schema if provided
+        table_name = (config.USER_TABLE_NAME or 'users').strip() or 'users'
+        configured_schema = (config.USER_TABLE_SCHEMA or '').strip()
+
+        # Resolve schema for table_name if not explicitly configured
+        table_schema = configured_schema or None
+        if not table_schema:
+            try:
+                rs = conn.execute(text(
+                    f"SELECT TOP 1 TABLE_SCHEMA FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = :tname"
+                    if dialect == "mssql" else
+                    f"SELECT TABLE_SCHEMA FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = :tname LIMIT 1"
+                ), {"tname": table_name})
+                row = rs.fetchone()
+                if row and row[0]:
+                    table_schema = row[0]
+            except Exception:
+                table_schema = None
 
         # Fetch available columns
         cols: List[str] = []
         try:
             rs = conn.execute(text(
-                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users'"
-            ))
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = :tname"
+            ), {"tname": table_name})
             cols = [r[0] for r in rs.fetchall()]
         except Exception:
             cols = []
@@ -100,7 +111,20 @@ class UserDatabase:
                     return n
             return None
 
-        colmap: Dict[str, Optional[str]] = {k: pick(v) for k, v in candidates.items()}
+        # Start with configured overrides if provided
+        overrides: Dict[str, Optional[str]] = {
+            'id': (config.USER_COL_ID or '').strip() or None,
+            'first_name': (config.USER_COL_FIRST_NAME or '').strip() or None,
+            'last_name': (config.USER_COL_LAST_NAME or '').strip() or None,
+            'phone': (config.USER_COL_PHONE or '').strip() or None,
+            'email': (config.USER_COL_EMAIL or '').strip() or None,
+            'password': (config.USER_COL_PASSWORD or '').strip() or None,
+            'is_manager': (config.USER_COL_IS_MANAGER or '').strip() or None,
+            'permission_group': (config.USER_COL_PERMISSION_GROUP or '').strip() or None,
+        }
+        # Pick from candidates where not overridden
+        picked: Dict[str, Optional[str]] = {k: (overrides[k] or pick(v)) for k, v in candidates.items()}
+        colmap: Dict[str, Optional[str]] = picked
 
         # Required: id, email, password. Try fallbacks if not found at all
         if not colmap['id']:
@@ -113,14 +137,14 @@ class UserDatabase:
         # Qualify table
         if dialect == "mssql":
             if table_schema:
-                table_qual = f"[{table_schema}].[users]"
+                table_qual = f"[{table_schema}].[{table_name}]"
             else:
-                table_qual = "[users]"
+                table_qual = f"[{table_name}]"
         else:
             if table_schema:
-                table_qual = f"{table_schema}.users"
+                table_qual = f"{table_schema}.{table_name}"
             else:
-                table_qual = "users"
+                table_qual = table_name
 
         # Quote column names for MSSQL with []
         if dialect == "mssql":
@@ -129,6 +153,7 @@ class UserDatabase:
             # Leave unquoted for portability; assumes simple identifiers
             quoted = colmap  # type: ignore
 
+        logger.debug(f"Resolved users table mapping: table={table_qual}, columns={quoted}")
         return table_qual, quoted  # type: ignore
 
     def get_user_by_email(self, email: str) -> Optional[User]:
@@ -215,3 +240,11 @@ class UserDatabase:
 
 # Global database instance
 user_db = UserDatabase()
+
+
+def get_user_db_manager() -> UserDatabase:
+    """Compatibility helper for code expecting a factory function.
+
+    Returns the global user database manager instance.
+    """
+    return user_db

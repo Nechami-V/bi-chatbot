@@ -48,19 +48,19 @@ def init_db():
         
         # Seed sample data if empty
         db = SessionLocal()
-        try:
-            # Seed translation dictionary with basic mappings
-            existing_count = db.query(TranslationDictionaryModel).count()
-            if existing_count == 0:
-                logger.info("Seeding translation dictionary...")
-                seed_translation_dictionary(db)
-                db.commit()
-                logger.info("Translation dictionary seeded successfully")
-            else:
-                logger.info(f"Translation dictionary already contains {existing_count} mappings")
+        # try:
+        #     # Seed translation dictionary with basic mappings
+        #     existing_count = db.query(TranslationDictionaryModel).count()
+        #     if existing_count == 0:
+        #         logger.info("Seeding translation dictionary...")
+        #         # seed_translation_dictionary(db)
+        #         db.commit()
+        #         logger.info("Translation dictionary seeded successfully")
+        #     else:
+        #         logger.info(f"Translation dictionary already contains {existing_count} mappings")
                 
-        finally:
-            db.close()
+        # finally:
+        #     db.close()
             
         logger.info("Database initialization completed successfully")
         
@@ -69,62 +69,62 @@ def init_db():
         raise
 
 
-def seed_translation_dictionary(db):
-    """
-    Seed the translation dictionary with basic Hebrew-to-database mappings
+# def seed_translation_dictionary(db):
+#     """
+#     Seed the translation dictionary with basic Hebrew-to-database mappings
     
-    Args:
-        db: SQLAlchemy database session
-    """
-    from app.models.translation_dictionary import TranslationDictionaryModel
+#     Args:
+#         db: SQLAlchemy database session
+#     """
+#     # from app.models.translation_dictionary import TranslationDictionaryModel
     
-    logger.debug("Loading translation dictionary seed data...")
+#     logger.debug("Loading translation dictionary seed data...")
     
-    try:
-        # Check if already seeded
-        existing_count = db.query(TranslationDictionaryModel).count()
-        if existing_count > 0:
-            logger.debug(f"Translation dictionary already seeded with {existing_count} entries")
-            return
+#     try:
+#         # Check if already seeded
+#         # existing_count = db.query(TranslationDictionaryModel).count()
+#         if existing_count > 0:
+#             logger.debug(f"Translation dictionary already seeded with {existing_count} entries")
+#             return
         
-        logger.info("Seeding translation dictionary with Hebrew term mappings")
-        mappings = [
-        # Customers
-        {"client_id": 1, "user_term": "לקוחות", "db_table": "ClientsBot2025", "db_field": "ID_לקוח", "default_agg": "COUNT"},
-        {"client_id": 1, "user_term": "לקוחות חדשים", "db_table": "ClientsBot2025", "db_field": "ID_לקוח", "default_agg": "COUNT"},
-        {"client_id": 1, "user_term": "מספר לקוחות", "db_table": "ClientsBot2025", "db_field": "ID_לקוח", "default_agg": "COUNT"},
+#         logger.info("Seeding translation dictionary with Hebrew term mappings")
+#         mappings = [
+#         # Customers
+#         {"client_id": 1, "user_term": "לקוחות", "db_table": "ClientsBot2025", "db_field": "ID_לקוח", "default_agg": "COUNT"},
+#         {"client_id": 1, "user_term": "לקוחות חדשים", "db_table": "ClientsBot2025", "db_field": "ID_לקוח", "default_agg": "COUNT"},
+#         {"client_id": 1, "user_term": "מספר לקוחות", "db_table": "ClientsBot2025", "db_field": "ID_לקוח", "default_agg": "COUNT"},
         
-        # City
-        {"client_id": 1, "user_term": "עיר", "db_table": "ClientsBot2025", "db_field": "city", "default_agg": None},
-        {"client_id": 1, "user_term": "ערים", "db_table": "ClientsBot2025", "db_field": "city", "default_agg": None},
-        {"client_id": 1, "user_term": "יישוב", "db_table": "ClientsBot2025", "db_field": "city", "default_agg": None},
+#         # City
+#         {"client_id": 1, "user_term": "עיר", "db_table": "ClientsBot2025", "db_field": "city", "default_agg": None},
+#         {"client_id": 1, "user_term": "ערים", "db_table": "ClientsBot2025", "db_field": "city", "default_agg": None},
+#         {"client_id": 1, "user_term": "יישוב", "db_table": "ClientsBot2025", "db_field": "city", "default_agg": None},
         
-        # Names
-        {"client_id": 1, "user_term": "שם פרטי", "db_table": "ClientsBot2025", "db_field": "fname", "default_agg": None},
-        {"client_id": 1, "user_term": "שם משפחה", "db_table": "ClientsBot2025", "db_field": "lname", "default_agg": None},
+#         # Names
+#         {"client_id": 1, "user_term": "שם פרטי", "db_table": "ClientsBot2025", "db_field": "fname", "default_agg": None},
+#         {"client_id": 1, "user_term": "שם משפחה", "db_table": "ClientsBot2025", "db_field": "lname", "default_agg": None},
         
-        # Items
-        {"client_id": 1, "user_term": "פריטים", "db_table": "ItemsBot2025", "db_field": "ID_פריט", "default_agg": "COUNT"},
-        {"client_id": 1, "user_term": "מוצרים", "db_table": "ItemsBot2025", "db_field": "ID_פריט", "default_agg": "COUNT"},
-        {"client_id": 1, "user_term": "שם פריט", "db_table": "ItemsBot2025", "db_field": "name", "default_agg": None},
+#         # Items
+#         {"client_id": 1, "user_term": "פריטים", "db_table": "ItemsBot2025", "db_field": "ID_פריט", "default_agg": "COUNT"},
+#         {"client_id": 1, "user_term": "מוצרים", "db_table": "ItemsBot2025", "db_field": "ID_פריט", "default_agg": "COUNT"},
+#         {"client_id": 1, "user_term": "שם פריט", "db_table": "ItemsBot2025", "db_field": "name", "default_agg": None},
         
-        # orders/sales
-        {"client_id": 1, "user_term": "הזמנות", "db_table": "OrdersBot2025", "db_field": "ID_מכירה", "default_agg": "COUNT"},
-        {"client_id": 1, "user_term": "מכירות", "db_table": "OrdersBot2025", "db_field": "ID_מכירה", "default_agg": "COUNT"},
-        {"client_id": 1, "user_term": "סכום", "db_table": "OrdersBot2025", "db_field": "סכום", "default_agg": "SUM"},
-        {"client_id": 1, "user_term": "תאריך", "db_table": "OrdersBot2025", "db_field": "תאריך", "default_agg": None},
-    ]
+#         # orders/sales
+#         {"client_id": 1, "user_term": "הזמנות", "db_table": "OrdersBot2025", "db_field": "ID_מכירה", "default_agg": "COUNT"},
+#         {"client_id": 1, "user_term": "מכירות", "db_table": "OrdersBot2025", "db_field": "ID_מכירה", "default_agg": "COUNT"},
+#         {"client_id": 1, "user_term": "סכום", "db_table": "OrdersBot2025", "db_field": "סכום", "default_agg": "SUM"},
+#         {"client_id": 1, "user_term": "תאריך", "db_table": "OrdersBot2025", "db_field": "תאריך", "default_agg": None},
+#     ]
     
-        for mapping in mappings:
-            db.add(TranslationDictionaryModel(**mapping))
+#         for mapping in mappings:
+#             db.add(TranslationDictionaryModel(**mapping))
         
-        db.commit()
-        logger.info(f"Successfully seeded {len(mappings)} translation dictionary entries")
+#         db.commit()
+#         logger.info(f"Successfully seeded {len(mappings)} translation dictionary entries")
         
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to seed translation dictionary: {str(e)}")
-        raise
+#     except Exception as e:
+#         db.rollback()
+#         logger.error(f"Failed to seed translation dictionary: {str(e)}")
+#         raise
 
 
 def get_db():
