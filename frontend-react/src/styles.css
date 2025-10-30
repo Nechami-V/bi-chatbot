@@ -1,0 +1,32 @@
+:root {
+  --bg: #0f172a;
+  --panel: #111827;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --accent: #4f46e5;
+  --warn: #f59e0b;
+  --success: #10b981;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, 'Apple Color Emoji','Segoe UI Emoji'; background: var(--bg); color: var(--text); }
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.nav { background: var(--panel); border-bottom: 1px solid #1f2937; padding: 12px 16px; display:flex; align-items:center; justify-content:space-between; }
+.brand { font-weight: 700; letter-spacing: .2px; }
+.container { max-width: 1100px; margin: 0 auto; padding: 16px; width:100%; }
+.card { background: var(--panel); border: 1px solid #1f2937; border-radius: 10px; padding: 16px; }
+.row { display:flex; gap: 10px; align-items: center; }
+.col { display:flex; flex-direction: column; gap: 8px; }
+.btn { background: var(--accent); color: white; border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; font-weight:600; }
+.btn:disabled { opacity:.6; cursor: default; }
+.input, .textarea { width:100%; background: #0b1220; color: var(--text); border:1px solid #1f2937; border-radius:8px; padding: 10px 12px; }
+.textarea { min-height: 80px; resize: vertical; }
+.error { color: #fecaca; background:#7f1d1d; border:1px solid #991b1b; border-radius:8px; padding:10px 12px; }
+.muted { color: var(--muted); }
+.messages { display:flex; flex-direction: column; gap: 10px; }
+.bubble { padding: 12px 14px; border-radius: 10px; max-width: 80%; }
+.bubble.me { background:#1f2937; align-self: flex-end; }
+.bubble.ai { background:#0b1220; align-self: flex-start; border:1px solid #1f2937; }
+.sql { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; white-space: pre-wrap; background: #0b1220; border:1px solid #1f2937; border-radius:8px; padding:10px; }
+table { width:100%; border-collapse: collapse; }
+th, td { text-align: start; padding: 8px 10px; border-bottom:1px solid #1f2937; }
+.header { display:flex; align-items:center; justify-content: space-between; margin-bottom:10px; }
