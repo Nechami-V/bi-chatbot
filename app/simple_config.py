@@ -55,5 +55,11 @@ class Config:
   available data. Return **only** the SQL query itself, with no explanations, comments, or additional text. Your purpose is 
   to give the client the **most accurate, reliable, and professional** query possible for every question they ask.
   """
+
+    # --- Prompt Packs ---
+    # Active pack name (required by product request). If not set, code should raise a clear error.
+    PACK = os.getenv("PACK", "").strip()
+    PROMPTS_DIR = os.getenv("PROMPTS_DIR", "configs/prompts").strip()
+    SCHEMAS_DIR = os.getenv("SCHEMAS_DIR", "configs/schemas").strip()
 # Global config instance
 config = Config()

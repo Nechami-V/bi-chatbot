@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import inspect, text
 
 from app.simple_config import config
+from app.services.prompt_manager import PromptManager, PromptNotConfigured
 from app.config_loader import config_loader
 
 # Configure logger
@@ -48,6 +49,8 @@ class AIService:
             "You are a helpful BI assistant that converts Hebrew business questions into SQL and answers clearly."
         )
         self.schema_info = self._analyze_database_schema()
+        # Prompt manager is optional for legacy flows; initialize lazily when PACK is set
+        self._prompt_mgr: Optional[PromptManager] = None
 
         if not config.OPENAI_API_KEY:
             raise ValueError("OpenAI API key is not configured. Please set OPENAI_API_KEY.")
@@ -200,6 +203,75 @@ class AIService:
             "raw_response": last_raw,
             "duration_sec": total,
         }
+
+    # New: unified prompt-pack flow producing a single JSON with short_answer/sql_export/sql_ratio
+    def generate_pack_output(self, question: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Use prompt packs to produce a single JSON with the three outputs.
+
+        This calls the model once per type and merges the JSON fields to a single object.
+        If PACK is not configured, raises clearly.
+        """
+        if not config.PACK:
+            raise PromptNotConfigured("PACK is not set; cannot use prompt packs")
+
+        if self._prompt_mgr is None:
+            self._prompt_mgr = PromptManager()
+
+        outputs: Dict[str, Any] = {}
+        errors: Dict[str, str] = {}
+
+        # Minimal context for templates
+        ctx = dict(variables or {})
+        ctx.setdefault("question", question)
+
+        for t in ("answer", "sql_export", "sql_ratio"):
+            try:
+                prompt = self._prompt_mgr.render(t, schema=self.schema_info, variables=ctx)
+                # Call OpenAI
+                resp = self._call_openai_chat(prompt)
+                obj = self._safe_json(resp)
+                if not isinstance(obj, dict):
+                    raise ValueError("Model did not return a JSON object")
+                # Extract expected field
+                key_map = {
+                    "answer": "short_answer",
+                    "sql_export": "sql_export",
+                    "sql_ratio": "sql_ratio",
+                }
+                key = key_map[t]
+                val = obj.get(key)
+                if not val:
+                    raise ValueError(f"Missing '{key}' in model output")
+                outputs[key] = val
+            except Exception as e:
+                errors[t] = str(e)
+
+        if errors:
+            logger.warning(f"Prompt pack generation had errors: {errors}")
+
+        return outputs
+
+    # Internal helpers for prompt-pack calls
+    def _call_openai_chat(self, prompt: str) -> str:
+        completion = self.client.chat.completions.create(
+            model=config.OPENAI_MODEL,
+            messages=[{"role": "system", "content": self.system_prompt}, {"role": "user", "content": prompt}],
+            temperature=config.TEMPERATURE,
+        )
+        return completion.choices[0].message.content or ""
+
+    def _safe_json(self, s: str) -> Any:
+        try:
+            return json.loads(s)
+        except Exception:
+            # Try to extract a JSON object from text
+            m = re.search(r"\{[\s\S]*\}", s)
+            if m:
+                try:
+                    return json.loads(m.group(0))
+                except Exception:
+                    pass
+        return {}
     def _build_sql_prompt(self, question: str, context_text: str = "") -> str:
         """
         Build SQL generation prompt.
