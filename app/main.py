@@ -5,6 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 # Local imports
 from app.db.database import init_db
 from app.api.auth import router as auth_router
+from app.api.system import router as system_router
+from app.api.chat import router as chat_router
+from app.api.voice import router as voice_router
 
 
 # Logger
@@ -37,7 +40,10 @@ async def startup_event():
 
 
 # Routers
-app.include_router(auth_router)
+app.include_router(system_router, tags=["System"]) 
+app.include_router(chat_router, tags=["Chatbot"]) 
+app.include_router(voice_router, tags=["Voice"]) 
+app.include_router(auth_router, tags=["Authentication"])
 
 
 # Health
@@ -54,5 +60,6 @@ def root():
         "endpoints": [
             {"path": "/auth/login", "method": "POST", "description": "Authenticate and get token"},
             {"path": "/auth/me", "method": "GET", "description": "Current user info"},
+            {"path": "/ask", "method": "POST", "description": "Main chatbot endpoint (authenticated)"},
         ],
     }

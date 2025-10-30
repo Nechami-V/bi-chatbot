@@ -34,3 +34,7 @@ class QueryResponse(BaseModel):
         None,
         description="Detailed timings in milliseconds: { sql_gen, db_exec, answer_gen, total }",
     )
+    visualization: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Optional visualization hint for frontend charting: {chart_type, title, label_field, value_field, labels, values}",
+    )

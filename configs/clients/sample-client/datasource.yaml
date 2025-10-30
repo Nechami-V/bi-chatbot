@@ -8,7 +8,7 @@ connection_string: "sqlite:///./data/bi_database.db"
 # Map logical entities to physical tables
 table_mappings:
   customer:
-    physical_table: "customers"
+    physical_table: "ClientsBot2025"
     columns:
       id: "id"
       first_name: "first_name"  
@@ -17,7 +17,7 @@ table_mappings:
       city: "city"
       
   order:
-    physical_table: "orders"
+    physical_table: "OrdersBot2025"
     columns:
       id: "id"
       customer_id: "customer_id"
@@ -27,7 +27,7 @@ table_mappings:
       order_date: "order_date"
       
   item:
-    physical_table: "items"
+    physical_table: "ItemsBot2025"
     columns:
       id: "id"
       name: "name"
