@@ -370,7 +370,7 @@ class AIService:
         response = self.client.chat.completions.create(
             model=config.OPENAI_MODEL,
             messages=messages,
-            max_completion_tokens=sql_tokens,
+            max_tokens=sql_tokens,
         )
         ai_content = response.choices[0].message.content
         logger.info(f"OpenAI returned: {ai_content}")
@@ -526,7 +526,7 @@ class AIService:
                         {"role": "system", "content": "You produce exactly one concise sentence in Hebrew that is fully self-contained and understandable without seeing the question. Return only the sentence, no lists, no code."},
                         {"role": "user", "content": base_prompt},
                     ],
-                    max_completion_tokens=ans_tokens,
+                    max_tokens=ans_tokens,
                 )
                 ai_response = (response.choices[0].message.content or "").strip()
             except Exception as e:
@@ -567,7 +567,7 @@ class AIService:
                         {"role": "system", "content": "You produce exactly one concise, self-contained Hebrew sentence. No tables, no code."},
                         {"role": "user", "content": prompt2},
                     ],
-                    max_completion_tokens=ans_tokens,
+                    max_tokens=ans_tokens,
                 )
                 ai_response2 = (response2.choices[0].message.content or "").strip()
                 if not _too_generic(ai_response2):

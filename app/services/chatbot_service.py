@@ -70,6 +70,11 @@ class ChatbotService:
                     if not query_results.get('success'):
                         return self._error_response(question, query_results.get('error', 'Query execution failed'), "DB", sql_query)
                     data = query_results['results']
+                    # If pack did not provide an answer, generate one now
+                    if not ai_answer or not ai_answer.strip():
+                        t3 = time.perf_counter()
+                        ai_answer = await self._generate_response(question, query_results, context_text=context_text)
+                        timings['answer_gen'] = (time.perf_counter() - t3) * 1000
                     # Save context and return in legacy QueryResponse shape
                     session_memory.add_exchange(user_id, question, ai_answer)
                     total_ms = (time.perf_counter() - t0) * 1000
