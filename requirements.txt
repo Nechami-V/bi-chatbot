@@ -18,8 +18,8 @@ bcrypt==3.2.2  # Compatible with many stacks; used for password verification
 openai>=1.0.0
 spacy==3.5.3
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.5.0/en_core_web_sm-3.5.0-py3-none-any.whl
-hebrew-nlp @ git+https://github.com/avilum/hebrew-nlp.git
-hebrew-tokenizer==1.0.0
+# hebrew-nlp @ git+ssh://git@github.com/<OWNER>/hebrew-nlp.git@<ref>
+# hebrew-tokenizer==1.0.0
 torch==2.0.1
 sentence-transformers==2.2.2
 

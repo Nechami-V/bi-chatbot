@@ -54,6 +54,40 @@ class ChatbotService:
         context_text = session_memory.get_context_text(user_id)
         logger.debug(f"Retrieved context text for user {user_id}: {bool(context_text)}")
 
+        # If PACK is configured, use prompt packs path to produce answer+SQL without changing frontend
+        if config.PACK:
+            try:
+                t_pack = time.perf_counter()
+                pack_out = self.ai_service.generate_pack_output(question, variables={"context_text": context_text})
+                timings['prompt_pack'] = (time.perf_counter() - t_pack) * 1000
+                sql_query = (pack_out or {}).get('sql_export')
+                ai_answer = (pack_out or {}).get('short_answer', '')
+                if sql_query:
+                    # Execute SQL from pack
+                    t2 = time.perf_counter()
+                    query_results = await self._execute_query(sql_query)
+                    timings['db_exec'] = (time.perf_counter() - t2) * 1000
+                    if not query_results.get('success'):
+                        return self._error_response(question, query_results.get('error', 'Query execution failed'), "DB", sql_query)
+                    data = query_results['results']
+                    # Save context and return in legacy QueryResponse shape
+                    session_memory.add_exchange(user_id, question, ai_answer)
+                    total_ms = (time.perf_counter() - t0) * 1000
+                    timings['total'] = total_ms
+                    return QueryResponse(
+                        question=question,
+                        answer=ai_answer,
+                        sql=sql_query,
+                        data=data,
+                        error=None,
+                        total_time_ms=total_ms,
+                        timings_ms=timings
+                    )
+                else:
+                    logger.warning("PACK set but no sql_export returned; falling back to legacy flow")
+            except Exception as e:
+                logger.warning(f"PACK path failed ({e}); falling back to legacy flow")
+
         try:
             # Generate SQL with simple context text
             t1 = time.perf_counter()
