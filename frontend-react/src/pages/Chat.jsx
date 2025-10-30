@@ -7,6 +7,9 @@ import SqlPanel from '../components/SqlPanel.jsx'
 import DataTable from '../components/DataTable.jsx'
 import ErrorBanner from '../components/ErrorBanner.jsx'
 import Loader from '../components/Loader.jsx'
+import Header from '../components/Header.jsx'
+import Sidebar from '../components/Sidebar.jsx'
+import Toast from '../components/Toast.jsx'
 
 export default function Chat() {
   const { token } = useAuth()
@@ -15,6 +18,7 @@ export default function Chat() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [toast, setToast] = useState('')
 
   async function onSend(question) {
     setError('')
@@ -34,14 +38,20 @@ export default function Chat() {
   }
 
   return (
-    <div className="container col" style={{gap:16}}>
-      <ErrorBanner error={error} />
-      <ChatInput onSend={onSend} disabled={loading} />
-      {loading && <Loader text="מחשב/ת תשובה..." />}
-      <ChatMessages messages={messages} />
-      <SqlPanel sql={sql} />
-      <DataTable data={data} />
-    </div>
+    <>
+      <Header onLogout={()=> setToast('התנתקת בהצלחה')} />
+      <div className="main-wrapper container" style={{display:'flex', gap:16}}>
+        <main className="chat-container" style={{flex:1}}>
+          <ErrorBanner error={error} />
+          <ChatInput onSend={onSend} disabled={loading} />
+          {loading && <Loader text="מחשב/ת תשובה..." />}
+          <ChatMessages messages={messages} />
+          <SqlPanel sql={sql} />
+          <DataTable data={data} />
+        </main>
+        <Sidebar onFeature={()=> setToast('בקרוב...')} />
+      </div>
+      <Toast message={toast} onClose={()=> setToast('')} />
+    </>
   )
 }
-
