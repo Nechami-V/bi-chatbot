@@ -1,23 +1,21 @@
 # Core
 fastapi==0.95.0
 uvicorn[standard]==0.21.1
-python-multipart==0.0.20
+python-multipart==0.0.6
 python-dotenv==1.0.0
 pydantic[email]==1.10.7
-
-# Authentication
-PyJWT==2.6.0
-pyodbc==4.0.39
-bcrypt==4.2.0
+PyJWT==2.8.0
 
 # Database
 sqlalchemy==2.0.9
 alembic==1.10.3
 aiosqlite==0.18.0
 psycopg2-binary==2.9.3
+pyodbc==4.0.39  # For SQL Server connection
+passlib[bcrypt]==1.7.4  # Password hashing/verification
 
 # AI & NLP
-openai>=1.0.0
+openai==0.27.5
 spacy==3.5.3
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.5.0/en_core_web_sm-3.5.0-py3-none-any.whl
 hebrew-nlp @ git+https://github.com/avilum/hebrew-nlp.git
