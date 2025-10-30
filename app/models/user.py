@@ -3,20 +3,13 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from ..db.database import Base
 
-# Optional bcrypt verification via passlib or bcrypt if available
-_BCRYPT_AVAILABLE = False
-_PASSLIB_BCRYPT = None
-_PY_BCRYPT = None
+# Optional bcrypt verification via bcrypt library only (avoid passlib incompat issues)
 try:
-    from passlib.hash import bcrypt as _PASSLIB_BCRYPT  # type: ignore
+    import bcrypt as _BCRYPT  # type: ignore
     _BCRYPT_AVAILABLE = True
 except Exception:
-    _PASSLIB_BCRYPT = None
-try:
-    import bcrypt as _PY_BCRYPT  # type: ignore
-    _BCRYPT_AVAILABLE = _BCRYPT_AVAILABLE or True
-except Exception:
-    _PY_BCRYPT = None
+    _BCRYPT = None
+    _BCRYPT_AVAILABLE = False
 
 class User(Base):
     """User model for authentication and authorization."""
@@ -59,22 +52,19 @@ class User(Base):
     def check_password(self, password: str) -> bool:
         """Verify password against stored hash.
 
-        Supports bcrypt when stored hash starts with "$2" (via passlib if available),
-        otherwise falls back to raw equality for pre-hashed inputs.
+        Supports bcrypt when stored hash starts with "$2" (using bcrypt module),
+        otherwise falls back to raw equality for legacy/pre-hashed inputs.
         """
-        if isinstance(self.hashed_password, str) and self.hashed_password and self.hashed_password.startswith("$2"):
-            # Try passlib first
-            if _PASSLIB_BCRYPT is not None:
-                try:
-                    return _PASSLIB_BCRYPT.verify(password, self.hashed_password)
-                except Exception:
-                    return False
-            # Fallback to bcrypt module if available
-            if _PY_BCRYPT is not None:
-                try:
-                    return _PY_BCRYPT.checkpw(password.encode("utf-8"), self.hashed_password.encode("utf-8"))
-                except Exception:
-                    return False
+        if (
+            isinstance(self.hashed_password, str)
+            and self.hashed_password
+            and self.hashed_password.startswith("$2")
+            and _BCRYPT_AVAILABLE
+        ):
+            try:
+                return _BCRYPT.checkpw(password.encode("utf-8"), self.hashed_password.encode("utf-8"))
+            except Exception:
+                return False
         # Fallback: compare as-is (expects caller to hash consistently elsewhere)
         return self.hashed_password == password
 

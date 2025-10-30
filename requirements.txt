@@ -12,7 +12,7 @@ alembic==1.10.3
 aiosqlite==0.18.0
 psycopg2-binary==2.9.3
 pyodbc==4.0.39  # For SQL Server connection
-passlib[bcrypt]==1.7.4  # Password hashing/verification
+bcrypt==3.2.2  # Compatible with many stacks; used for password verification
 
 # AI & NLP
 openai==0.27.5
