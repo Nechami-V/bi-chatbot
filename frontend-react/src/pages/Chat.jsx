@@ -7,7 +7,6 @@ import SqlPanel from '../components/SqlPanel.jsx'
 import DataTable from '../components/DataTable.jsx'
 import ErrorBanner from '../components/ErrorBanner.jsx'
 import Loader from '../components/Loader.jsx'
-import Header from '../components/Header.jsx'
 import Sidebar from '../components/Sidebar.jsx'
 import Toast from '../components/Toast.jsx'
 
@@ -39,9 +38,8 @@ export default function Chat() {
 
   return (
     <>
-      <Header onLogout={()=> setToast('התנתקת בהצלחה')} />
-      <div className="main-wrapper container" style={{display:'flex', gap:16}}>
-        <main className="chat-container" style={{flex:1}}>
+      <div className="main-wrapper">
+        <main className="chat-container">
           <ErrorBanner error={error} />
           <ChatInput onSend={onSend} disabled={loading} />
           {loading && <Loader text="מחשב/ת תשובה..." />}
