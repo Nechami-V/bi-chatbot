@@ -7,6 +7,7 @@ class BiChatbot {
         this.authToken = null;
         this.userInfo = null;
         this.sidebarChart = null; // Chart.js instance for the sidebar sampleChart
+        this.lastQuestion = null; // Store last question for export
 
         // Voice recording variables
         this.mediaRecorder = null;
@@ -126,6 +127,9 @@ class BiChatbot {
         if (!message || this.isLoading) {
             return;
         }
+
+        // Store last question for export
+        this.lastQuestion = message;
 
         // Add user message to chat
         this.addMessage(message, 'user');
@@ -892,6 +896,111 @@ function initSampleChart() {
         canvasEl.height = 200;
         container.appendChild(canvasEl);
         try { if (window.chatbot) window.chatbot.sidebarChart = null; } catch (e) { }
+    }
+}
+
+// Export functions
+async function exportToExcel() {
+    if (!window.chatbot) {
+        alert('מערכת הצ\'אט לא אותחלה');
+        return;
+    }
+
+    if (!window.chatbot.lastQuestion) {
+        window.chatbot.showToast('אין שאלה לייצא. שאל שאלה קודם.', 'error');
+        return;
+    }
+
+    try {
+        window.chatbot.showToast('מייצא לאקסל...', 'info');
+        
+        const response = await fetch(`${window.chatbot.apiUrl}/export?format=excel`, {
+            method: 'POST',
+            headers: window.chatbot.getAuthHeaders(),
+            body: JSON.stringify({ question: window.chatbot.lastQuestion })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Export failed');
+        }
+
+        // Get filename from Content-Disposition header
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'export.xlsx';
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename=(.+)/);
+            if (filenameMatch) filename = filenameMatch[1];
+        }
+
+        // Download file
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        window.chatbot.showToast('הקובץ ירד בהצלחה! ✅', 'success');
+
+    } catch (error) {
+        console.error('Export to Excel failed:', error);
+        window.chatbot.showToast(`שגיאה בייצוא: ${error.message}`, 'error');
+    }
+}
+
+async function exportToCSV() {
+    if (!window.chatbot) {
+        alert('מערכת הצ\'אט לא אותחלה');
+        return;
+    }
+
+    if (!window.chatbot.lastQuestion) {
+        window.chatbot.showToast('אין שאלה לייצא. שאל שאלה קודם.', 'error');
+        return;
+    }
+
+    try {
+        window.chatbot.showToast('מייצא ל-CSV...', 'info');
+        
+        const response = await fetch(`${window.chatbot.apiUrl}/export?format=csv`, {
+            method: 'POST',
+            headers: window.chatbot.getAuthHeaders(),
+            body: JSON.stringify({ question: window.chatbot.lastQuestion })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Export failed');
+        }
+
+        // Get filename from Content-Disposition header
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'export.csv';
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename=(.+)/);
+            if (filenameMatch) filename = filenameMatch[1];
+        }
+
+        // Download file
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        window.chatbot.showToast('הקובץ ירד בהצלחה! ✅', 'success');
+
+    } catch (error) {
+        console.error('Export to CSV failed:', error);
+        window.chatbot.showToast(`שגיאה בייצוא: ${error.message}`, 'error');
     }
 }
 
