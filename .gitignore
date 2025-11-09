@@ -28,4 +28,10 @@ Thumbs.db
 # created by virtualenv automatically
 .idea
 
+# Node/React builds
+node_modules/
+frontend-react/node_modules/
+frontend-react/dist/
+dist/
+
 

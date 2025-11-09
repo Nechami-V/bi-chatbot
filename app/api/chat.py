@@ -5,10 +5,12 @@ Contains main chatbot endpoints for text-based conversations.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.services.chatbot_service import ChatbotService
+from app.services.export_service import ExportService
 from app.services.user_service import user_db
 from app.api.auth import verify_token
 from app.models.user import User
@@ -57,3 +59,55 @@ async def ask_question_pack(
         "sql_export": out.get("sql_export", ""),
         "sql_ratio": out.get("sql_ratio", ""),
     })
+
+
+@router.post("/export", tags=["Export"])
+async def export_data(
+    request: QueryRequest,
+    format: str = "excel",
+    current_user: User = Depends(verify_token),
+    db: Session = Depends(get_db)
+):
+    """
+    Export data to Excel or CSV based on natural language question
+    
+    Uses Exports.yaml prompt to generate optimized export SQL.
+    Returns file ready for download.
+    
+    Args:
+        request: QueryRequest with question field
+        format: "excel" or "csv" (default: "excel")
+        
+    Returns:
+        File download response with appropriate content type
+    """
+    if format not in ["excel", "csv"]:
+        raise HTTPException(status_code=400, detail="Format must be 'excel' or 'csv'")
+    
+    try:
+        export_service = ExportService(db)
+        file_content, filename = export_service.export_data(
+            question=request.question,
+            format=format
+        )
+        
+        # Set appropriate content type and headers
+        if format == "excel":
+            media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        else:
+            media_type = "text/csv"
+        
+        return Response(
+            content=file_content,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
+        )
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
