@@ -224,3 +224,37 @@ export async function getSchema(): Promise<any> {
   const response = await fetchWithTimeout(url, { method: 'GET' });
   return handleResponse(response);
 }
+
+/**
+ * Export data to Excel or CSV
+ */
+export async function exportData(
+  question: string,
+  format: 'excel' | 'csv' = 'excel'
+): Promise<Blob> {
+  const url = `${API_BASE_URL}${API_ENDPOINTS.EXPORT}?format=${format}`;
+  
+  const requestBody = { question };
+
+  const response = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.detail || errorData.message || errorMessage;
+    } catch {
+      // Response is not JSON
+    }
+    throw new APIError(errorMessage, response.status);
+  }
+
+  // Return the blob directly for file download
+  return response.blob();
+}

@@ -11,7 +11,7 @@ import { LoginPrompt } from './components/LoginPrompt';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { toast } from 'sonner@2.0.3';
 import { Toaster } from './components/ui/sonner';
-import { askQuestion, APIError, logout as apiLogout, login } from './services/api';
+import { askQuestion, APIError, logout as apiLogout, login, exportData } from './services/api';
 import foxLogo from 'figma:asset/5eb1a03d8a66515a97bce7830fd04ba26410b27e.png';
 
 interface Message {
@@ -318,6 +318,41 @@ function App() {
     toast.success('השאילתה נמחקה');
   };
 
+  const handleExport = async (format: 'excel' | 'csv' = 'excel') => {
+    const lastUserMessage = [...messages].reverse().find(m => m.type === 'user');
+    if (!lastUserMessage) {
+      toast.error('אין שאלה לייצא');
+      return;
+    }
+
+    try {
+      toast.info('מייצא נתונים...');
+      
+      const blob = await exportData(lastUserMessage.content, format);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `export_${Date.now()}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`הקובץ הורד בהצלחה (${format === 'excel' ? 'Excel' : 'CSV'})`);
+    } catch (error) {
+      console.error('Export error:', error);
+      if (error instanceof APIError) {
+        toast.error(`שגיאה בייצוא: ${error.message}`);
+      } else {
+        toast.error('אירעה שגיאה בייצוא הנתונים');
+      }
+    }
+  };
+
   const handleNewChat = () => {
     setMessages([]);
     setActiveMessageId(null);
@@ -481,7 +516,7 @@ function App() {
                       showActions={message.type === 'ai' && message.showActions}
                       onInsights={() => toast.info('תובנות חכמות - בקרוב')}
                       onSaveQuery={handleSaveQuery}
-                      onExport={() => toast.success('הייצוא הושלם בהצלחה')}
+                      onExport={(format) => handleExport(format as 'excel' | 'csv')}
                       onShowSQL={() => {
                         setMessages(prev => prev.map(m => 
                           m.id === message.id ? { ...m, showSQL: !m.showSQL } : m
@@ -536,7 +571,7 @@ function App() {
                   onClose={handleCloseAnalytics}
                   onInsights={() => toast.info('תובנות חכמות - בקרוב')}
                   onSaveQuery={handleSaveQuery}
-                  onExport={() => toast.success('הורדתי את הדוח')}
+                  onExport={(format) => handleExport(format as 'excel' | 'csv')}
                   onShowSQL={() => {
                     if (activeMessage) {
                       setMessages(prev => prev.map(m => 

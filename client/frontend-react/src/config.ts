@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
   
   // Chat endpoints
   ASK: '/ask',
+  EXPORT: '/export',
   
   // System endpoints
   HEALTH: '/health',

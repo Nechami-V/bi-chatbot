@@ -5,73 +5,12 @@ import foxLogo from 'figma:asset/5eb1a03d8a66515a97bce7830fd04ba26410b27e.png';
 import { copyToClipboard } from '../utils/clipboard';
 
 // Export Dropdown Component
-function ExportDropdown({ isAnalyticsExpanded, onExport, data }: { isAnalyticsExpanded: boolean; onExport?: () => void; data?: any[] }) {
+function ExportDropdown({ isAnalyticsExpanded, onExport, data }: { isAnalyticsExpanded: boolean; onExport?: (format: 'pdf' | 'excel' | 'csv') => void; data?: any[] }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleExport = (format: 'csv' | 'excel') => {
-    if (!data || data.length === 0) {
-      console.warn('No data to export');
-      return;
-    }
-
-    if (format === 'csv') {
-      exportToCSV(data);
-    } else {
-      exportToExcel(data);
-    }
-    
-    onExport?.();
+    onExport?.(format);
     setIsOpen(false);
-  };
-
-  const exportToCSV = (data: any[]) => {
-    // Get headers from first object
-    const headers = Object.keys(data[0]);
-    
-    // Create CSV content
-    const csvContent = [
-      headers.join(','), // Header row
-      ...data.map(row => 
-        headers.map(header => {
-          const value = row[header];
-          // Escape values containing commas or quotes
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-            return `"${value.replace(/"/g, '""')}"`;
-          }
-          return value;
-        }).join(',')
-      )
-    ].join('\n');
-
-    // Create blob and download
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `export_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-  };
-
-  const exportToExcel = (data: any[]) => {
-    // Create HTML table
-    const headers = Object.keys(data[0]);
-    
-    const tableHTML = `
-      <table>
-        <thead>
-          <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
-        </thead>
-        <tbody>
-          ${data.map(row => `<tr>${headers.map(h => `<td>${row[h]}</td>`).join('')}</tr>`).join('')}
-        </tbody>
-      </table>
-    `;
-
-    // Create blob with Excel format
-    const blob = new Blob([tableHTML], { type: 'application/vnd.ms-excel' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `export_${new Date().toISOString().slice(0, 10)}.xls`;
-    link.click();
   };
 
   return (
@@ -142,7 +81,7 @@ interface ChatBubbleProps {
   showActions?: boolean;
   onInsights?: () => void;
   onSaveQuery?: () => void;
-  onExport?: () => void;
+  onExport?: (format: 'pdf' | 'excel' | 'csv') => void;
   onShowSQL?: () => void;
   showSQL?: boolean;
   isAnalyticsExpanded?: boolean;

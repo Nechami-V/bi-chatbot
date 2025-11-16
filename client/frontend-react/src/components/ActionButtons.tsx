@@ -21,20 +21,6 @@ export function ActionButtons({ onInsights, onSaveQuery, onExport, onShowSQL, is
   };
 
   const handleExport = (format: 'pdf' | 'excel' | 'csv') => {
-    // Create a dummy file download
-    const link = document.createElement('a');
-    link.href = '#';
-    link.download = `export-${Date.now()}.${format}`;
-    
-    // Trigger download simulation
-    const blob = new Blob(['Sample export data'], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    link.href = url;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
     onExport(format);
     setShowExportMenu(false);
   };
