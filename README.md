@@ -38,7 +38,26 @@ The system uses advanced AI models to understand questions, generate SQL queries
 
 ---
 
-## ⚡ Quick Installation
+## ⚡ Project Layout (Monorepo)
+
+```
+root/
+   server/        # FastAPI backend, database, AI services, tests
+      app/         # Application package
+      data/        # CSV & reference data
+      alembic/     # Migrations
+      configs/     # Prompt packs & configuration
+      tools/       # Utility scripts
+      tests/       # Backend tests
+   client/
+      frontend/        # Vanilla HTML/JS login + chat UI
+      frontend-react/  # (Optional) React experimental UI
+README.md
+```
+
+You now run the backend from inside the `server` directory so Python package imports (`app.*`) still work without refactoring.
+
+## ⚡ Quick Installation (Backend)
 
 1. **Clone the project**
    ```bash
@@ -66,15 +85,34 @@ The system uses advanced AI models to understand questions, generate SQL queries
 
 5. **Run the development server**
    ```bash
-   uvicorn app.main:app --reload
+   cd server
+   uvicorn app.main:app --reload --port 8002
    ```
+
+## 🖥️ Running the Client
+
+Static HTML client:
+```bash
+cd client/frontend
+python -m http.server 8080  # or open index.html directly
+```
+
+React client (if you choose to use it):
+```bash
+cd client/frontend-react
+npm install
+npm run dev
+```
+
+Adjust the frontend API base URL to point to `http://localhost:8002` if changed.
 
 ---
 
-## 🧪 Running Tests
+## 🧪 Running Tests (Backend)
 
 Run all tests:
 ```bash
+cd server
 pytest
 ```
 
