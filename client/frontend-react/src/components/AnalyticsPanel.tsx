@@ -8,7 +8,7 @@ interface AnalyticsPanelProps {
   activeMessageId: string | null;
   visualization?: {
     data: any[];
-    type: 'line' | 'bar' | 'pie';
+    type: 'line' | 'bar' | 'pie' | 'table' | 'metric';
     valuePrefix?: string;
     valueSuffix?: string;
   };

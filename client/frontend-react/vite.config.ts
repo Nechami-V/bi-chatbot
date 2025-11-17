@@ -19,7 +19,7 @@
         'input-otp@1.4.2': 'input-otp',
         'figma:asset/94c3dac261df590bf85ea3a5c2b28e9b3ed2ea33.png': path.resolve(__dirname, './src/assets/94c3dac261df590bf85ea3a5c2b28e9b3ed2ea33.png'),
         'figma:asset/693b327b20c301b1632efb14e838cd1551d3acb3.png': path.resolve(__dirname, './src/assets/693b327b20c301b1632efb14e838cd1551d3acb3.png'),
-        'figma:asset/5eb1a03d8a66515a97bce7830fd04ba26410b27e.png': path.resolve(__dirname, './src/assets/5eb1a03d8a66515a97bce7830fd04ba26410b27e.png'),
+        '../assets/kt-logo.png': path.resolve(__dirname, './src/assets/5eb1a03d8a66515a97bce7830fd04ba26410b27e.png'),
         'embla-carousel-react@8.6.0': 'embla-carousel-react',
         'cmdk@1.1.1': 'cmdk',
         'class-variance-authority@0.7.1': 'class-variance-authority',

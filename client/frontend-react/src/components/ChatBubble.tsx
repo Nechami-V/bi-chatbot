@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Download, Save, Code, Maximize2, Database, FileSpreadsheet, FileText, ChevronDown, X, Copy } from 'lucide-react';
 import image_94c3dac261df590bf85ea3a5c2b28e9b3ed2ea33 from 'figma:asset/94c3dac261df590bf85ea3a5c2b28e9b3ed2ea33.png';
-import foxLogo from 'figma:asset/5eb1a03d8a66515a97bce7830fd04ba26410b27e.png';
+import KTLogo from '../assets/kt-logo.png';
 import { copyToClipboard } from '../utils/clipboard';
 
 // Export Dropdown Component
@@ -181,7 +181,7 @@ export function ChatBubble({
                     {/* Mini Chart - Top on mobile, Left side on desktop, 1/3 width */}
                     <div className="w-full lg:w-1/3 lg:order-2 flex-shrink-0 relative">
                       {/* Mini Chart Container - with aspect ratio and rounded background */}
-                      <div className="relative w-full rounded-xl bg-muted/30 border border-border/50" style={{ aspectRatio: '4/3' }}>
+                      <div className="relative w-full rounded-xl bg-muted/30 border border-border/50 overflow-auto" style={{ aspectRatio: '4/3' }}>
                         {/* Expand Icon */}
                         <button
                           onClick={(e) => {

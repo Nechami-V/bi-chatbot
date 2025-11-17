@@ -12,7 +12,16 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { toast } from 'sonner@2.0.3';
 import { Toaster } from './components/ui/sonner';
 import { askQuestion, APIError, logout as apiLogout, login, exportData } from './services/api';
-import foxLogo from 'figma:asset/5eb1a03d8a66515a97bce7830fd04ba26410b27e.png';
+import KTLogo from '../assets/kt-logo.png';
+
+type VisualizationType = 'line' | 'bar' | 'pie' | 'table' | 'metric';
+
+interface VisualizationPayload {
+  data: any[];
+  type: VisualizationType;
+  valuePrefix?: string;
+  valueSuffix?: string;
+}
 
 interface Message {
   id: string;
@@ -21,12 +30,7 @@ interface Message {
   showActions?: boolean;
   sql?: string;
   showSQL?: boolean;
-  visualization?: {
-    data: any[];
-    type: 'line' | 'bar' | 'pie';
-    valuePrefix?: string;
-    valueSuffix?: string;
-  };
+  visualization?: VisualizationPayload;
 }
 
 interface SavedQuery {
@@ -55,15 +59,162 @@ function App() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
-  // נתוני דמה לויזואליזציה
-  const mockData = [
-    { name: 'ינואר', value: 120 },
-    { name: 'פברואר', value: 150 },
-    { name: 'מרץ', value: 180 },
-    { name: 'אפריל', value: 140 },
-    { name: 'מאי', value: 200 },
-    { name: 'יוני', value: 170 }
-  ];
+  const parseNumericValue = (value: any): number | null => {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+    if (typeof value === 'string') {
+      const normalized = value.replace(/,/g, '').replace(/\s/g, '');
+      const parsed = Number(normalized);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+    if (typeof value === 'object') {
+      if (value && 'value' in value) {
+        return parseNumericValue((value as Record<string, any>).value);
+      }
+      if (value && 'y' in value) {
+        return parseNumericValue((value as Record<string, any>).y);
+      }
+    }
+    return null;
+  };
+
+  const normalizeChartType = (chartType?: string): VisualizationType => {
+    switch (chartType) {
+      case 'line':
+        return 'line';
+      case 'pie':
+        return 'pie';
+      case 'metric':
+        return 'metric';
+      case 'table':
+        return 'table';
+      default:
+        return 'bar';
+    }
+  };
+
+  const buildVisualizationFromServer = (viz: any): VisualizationPayload | undefined => {
+    if (!viz || !Array.isArray(viz.labels) || !Array.isArray(viz.values)) {
+      return undefined;
+    }
+
+    const data = viz.labels
+      .map((label: any, index: number) => {
+        const rawValue = viz.values[index];
+        const numericValue = parseNumericValue(rawValue);
+        if (numericValue === null) {
+          return null;
+        }
+        return {
+          name: label ?? `נתון ${index + 1}`,
+          value: numericValue,
+        };
+      })
+  .filter((item: { name: string; value: number } | null): item is { name: string; value: number } => item !== null);
+
+    if (!data.length) {
+      return undefined;
+    }
+
+    return {
+      data,
+      type: normalizeChartType(viz.chart_type),
+      valuePrefix: viz.value_prefix || '',
+      valueSuffix: viz.value_suffix || '',
+    };
+  };
+
+  const buildVisualizationFromData = (data: any[]): VisualizationPayload | undefined => {
+    if (!Array.isArray(data) || data.length === 0) {
+      return undefined;
+    }
+
+    const rows = data
+      .filter((row) => row && typeof row === 'object')
+      .slice(0, 20);
+
+    if (!rows.length) {
+      return undefined;
+    }
+
+    const columns = Array.from(
+      new Set(
+        rows.flatMap((row) => Object.keys(row))
+      )
+    );
+
+    if (!columns.length) {
+      return undefined;
+    }
+
+    const numericColumns = columns.filter((column) =>
+      rows.every((row) => parseNumericValue(row[column]) !== null)
+    );
+
+    // Single numeric value -> metric
+    if (columns.length === 1 && numericColumns.includes(columns[0])) {
+      const column = columns[0];
+      const value = parseNumericValue(rows[0][column]);
+      if (value !== null) {
+        return {
+          data: [{ name: column, value }],
+          type: 'metric',
+        };
+      }
+    }
+
+    if (numericColumns.length) {
+      const valueColumn = numericColumns[0];
+      const labelColumn = columns.find((column) => column !== valueColumn) ?? valueColumn;
+
+      const chartData = rows
+        .map((row) => {
+          const parsedValue = parseNumericValue(row[valueColumn]);
+          if (parsedValue === null) {
+            return null;
+          }
+
+          return {
+            name:
+              row[labelColumn] !== undefined && row[labelColumn] !== null
+                ? String(row[labelColumn])
+                : labelColumn,
+            value: parsedValue,
+          };
+        })
+  .filter((item: { name: string; value: number } | null): item is { name: string; value: number } => item !== null);
+
+      if (chartData.length === 1) {
+        return {
+          data: chartData,
+          type: 'metric',
+        };
+      }
+
+      const uniqueLabels = new Set(chartData.map((item) => item.name));
+      const type: VisualizationType = uniqueLabels.size <= 3 ? 'pie' : 'bar';
+
+      return {
+        data: chartData,
+        type,
+      };
+    }
+
+    return {
+      data: rows.map((row) => {
+        const formatted: Record<string, any> = {};
+        columns.forEach((column) => {
+          formatted[column] = row[column];
+        });
+        return formatted;
+      }),
+      type: 'table',
+    };
+  };
 
   // Apply primary color to CSS variable and update all primary colors
   useEffect(() => {
@@ -237,17 +388,22 @@ function App() {
       };
 
       // Add visualization if present
+      console.log('Response visualization:', response.visualization);
+      let visualizationData: VisualizationPayload | undefined = undefined;
+
       if (response.visualization) {
-        const viz = response.visualization;
-        aiMessage.visualization = {
-          data: viz.labels.map((label, i) => ({
-            name: label,
-            value: viz.values[i]
-          })),
-          type: viz.chart_type === 'pie' ? 'pie' : viz.chart_type === 'line' ? 'line' : 'bar',
-          valuePrefix: '',
-          valueSuffix: ''
-        };
+        visualizationData = buildVisualizationFromServer(response.visualization);
+      }
+
+      if (!visualizationData && response.data) {
+        visualizationData = buildVisualizationFromData(response.data);
+      }
+
+      if (visualizationData) {
+        aiMessage.visualization = visualizationData;
+        console.log('Created visualization:', aiMessage.visualization);
+      } else {
+        console.log('No visualization in response or data fallback');
       }
 
       console.log('Adding AI message:', aiMessage);
@@ -471,7 +627,7 @@ function App() {
               <span className="text-primary text-sm">BI</span>
               <h2 className="text-sm">Chatbot</h2>
             </div>
-            <img src={foxLogo} alt="FOX Logo" className="h-8" />
+            <img src={KTLogo} alt="KT Logo" className="h-8" />
           </div>
         </header>
 

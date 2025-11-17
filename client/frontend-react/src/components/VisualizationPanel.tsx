@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { BarChart3, LineChart as LineChartIcon, PieChart as PieChartIcon, Table as TableIcon } from 'lucide-react';
+import { BarChart3, Gauge, LineChart as LineChartIcon, PieChart as PieChartIcon, Table as TableIcon } from 'lucide-react';
 
 interface VisualizationPanelProps {
   data: any[];
-  type?: 'line' | 'bar' | 'pie' | 'table';
-  availableTypes?: ('line' | 'bar' | 'pie' | 'table')[];
+  type?: 'line' | 'bar' | 'pie' | 'table' | 'metric';
+  availableTypes?: ('line' | 'bar' | 'pie' | 'table' | 'metric')[];
 }
 
 export function VisualizationPanel({ 
@@ -94,6 +94,18 @@ export function VisualizationPanel({
             </table>
           </div>
         );
+
+      case 'metric': {
+        const metric = data[0] || { value: 0 };
+        const value = typeof metric.value === 'number' ? metric.value : Number(metric.value) || 0;
+        const label = metric.name || Object.keys(metric)[0] || 'ערך';
+        return (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+            <span className="text-muted-foreground text-lg">{label}</span>
+            <span className="text-6xl font-bold text-primary">{value.toLocaleString('he-IL')}</span>
+          </div>
+        );
+      }
       
       default:
         return null;
@@ -106,6 +118,7 @@ export function VisualizationPanel({
       case 'bar': return <BarChart3 className="w-4 h-4" />;
       case 'pie': return <PieChartIcon className="w-4 h-4" />;
       case 'table': return <TableIcon className="w-4 h-4" />;
+      case 'metric': return <Gauge className="w-4 h-4" />;
       default: return null;
     }
   };

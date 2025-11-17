@@ -133,7 +133,9 @@ class ChatbotService:
             timings['total'] = total_ms
             # Build visualization hint for frontend (best-effort)
             try:
+                logger.info(f"Building visualization hint from data: {data}")
                 viz = self._build_visualization_hint(data)
+                logger.info(f"Visualization hint result: {viz}")
             except Exception:
                 logger.exception("Visualization hint generation failed")
                 viz = None

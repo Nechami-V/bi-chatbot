@@ -29,3 +29,16 @@ content: |
     "preferred_chart": "line",
     "reason": "The question refers to change over time, so a line chart is best."
   }
+  Smart breakdown logic:
+    - If the user asks "how many X" → instead of returning just the number,
+      choose the most relevant dimension from the dataset and create a category breakdown.
+      Examples:
+        - "How many customers do I have?" → breakdown by city (customers per city)
+        - "How many customers in Jerusalem?" → compare Jerusalem vs. all other locations
+        - "How many products did I sell this year?" → compare this year vs. last year OR by month
+
+  Your goal:
+    Always choose the most informative and intuitive breakdown automatically,
+    based on available columns and query results.
+
+  Keep explanations short and in English.

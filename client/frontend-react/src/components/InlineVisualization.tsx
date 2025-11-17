@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { BarChart3, LineChart as LineChartIcon, PieChart as PieChartIcon, Table as TableIcon } from 'lucide-react';
+import { BarChart3, Gauge, LineChart as LineChartIcon, PieChart as PieChartIcon, Table as TableIcon } from 'lucide-react';
 import { CustomTooltip } from './CustomTooltip';
+
+type ChartType = 'line' | 'bar' | 'pie' | 'table' | 'metric';
 
 interface InlineVisualizationProps {
   data: any[];
-  type?: 'line' | 'bar' | 'pie' | 'table';
+  type?: ChartType;
   valuePrefix?: string;
   valueSuffix?: string;
   isFullView?: boolean;
@@ -18,8 +20,36 @@ export function InlineVisualization({
   valueSuffix = '',
   isFullView = false
 }: InlineVisualizationProps) {
-  const [selectedType, setSelectedType] = useState(initialType);
+  const [selectedType, setSelectedType] = useState<ChartType>(initialType);
   const [primaryColor, setPrimaryColor] = useState('#8b5cf6');
+  const supportsMetric = initialType === 'metric' || (Array.isArray(data) && data.length <= 1);
+
+  const formatNumber = (value: number) => {
+    try {
+      return new Intl.NumberFormat('he-IL', {
+        maximumFractionDigits: 2,
+      }).format(value);
+    } catch (error) {
+      console.error('Error formatting number:', error);
+      return value.toString();
+    }
+  };
+
+  useEffect(() => {
+    setSelectedType(initialType);
+  }, [initialType]);
+  
+  // Debug logging
+  console.log('InlineVisualization props:', { data, type: initialType, valuePrefix, valueSuffix, isFullView });
+  
+  // Guard: if no data, show message
+  if (!data || data.length === 0) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+        אין נתונים להצגה
+      </div>
+    );
+  }
   
   // Convert HSL to HEX for recharts
   const hslToHex = (h: number, s: number, l: number): string => {
@@ -93,10 +123,11 @@ export function InlineVisualization({
   const COLORS = generateColorVariations(primaryColor);
 
   const chartTypes = [
-    { type: 'bar' as const, icon: BarChart3, label: 'עמודות' },
-    { type: 'line' as const, icon: LineChartIcon, label: 'קו' },
-    { type: 'pie' as const, icon: PieChartIcon, label: 'עוגה' },
-    { type: 'table' as const, icon: TableIcon, label: 'טבלה' }
+    ...((supportsMetric || selectedType === 'metric') ? [{ type: 'metric' as ChartType, icon: Gauge, label: 'מדד' }] : []),
+    { type: 'bar' as ChartType, icon: BarChart3, label: 'עמודות' },
+    { type: 'line' as ChartType, icon: LineChartIcon, label: 'קו' },
+    { type: 'pie' as ChartType, icon: PieChartIcon, label: 'עוגה' },
+    { type: 'table' as ChartType, icon: TableIcon, label: 'טבלה' }
   ];
 
   const renderVisualization = () => {
@@ -167,9 +198,9 @@ export function InlineVisualization({
       
       case 'table':
         return (
-          <div className="overflow-auto">
+          <div className="overflow-auto max-h-full">
             <table className="w-full text-sm border-collapse">
-              <thead className="bg-muted/50">
+              <thead className="bg-muted/50 sticky top-0">
                 <tr>
                   {Object.keys(data[0] || {}).map((key) => (
                     <th key={key} className="px-4 py-3 text-right border-b border-border">{key}</th>
@@ -191,6 +222,20 @@ export function InlineVisualization({
             </table>
           </div>
         );
+
+      case 'metric': {
+        const metric = data[0] || { value: 0 };
+        const value = typeof metric.value === 'number' ? metric.value : Number(metric.value) || 0;
+        const label = metric.name || Object.keys(metric)[0] || 'ערך';
+        return (
+          <div className={`w-full h-full flex flex-col items-center justify-center gap-2 ${isFullView ? 'py-10' : 'py-4'}`}>
+            <span className="text-sm text-muted-foreground">{label}</span>
+            <span className={`font-bold text-primary ${isFullView ? 'text-6xl' : 'text-4xl'}`}>
+              {valuePrefix}{formatNumber(value)}{valueSuffix}
+            </span>
+          </div>
+        );
+      }
       
       default:
         return null;
@@ -198,9 +243,9 @@ export function InlineVisualization({
   };
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col overflow-auto">
       {/* Chart Type Selector - Compact, Top Right */}
-      <div className="flex items-center justify-start mb-2 relative z-10">
+      <div className="flex items-center justify-start mb-2 relative z-10 flex-shrink-0">
         <div className="flex items-center gap-0.5 bg-background/95 backdrop-blur-sm rounded-lg p-0.5 border border-border shadow-sm">
           {chartTypes.map(({ type, icon: Icon, label }) => (
             <button
@@ -222,7 +267,7 @@ export function InlineVisualization({
       </div>
 
       {/* Visualization */}
-      <div className="flex-1">
+      <div className="flex-1 min-h-0">
         {renderVisualization()}
       </div>
     </div>

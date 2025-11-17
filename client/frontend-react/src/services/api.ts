@@ -30,12 +30,14 @@ export interface AskResponse {
   total_time_ms?: number;
   timings_ms?: Record<string, number>;
   visualization?: {
-    chart_type: 'line' | 'bar' | 'pie' | 'metric' | 'scatter';
+    chart_type: 'line' | 'bar' | 'pie' | 'metric' | 'table' | 'scatter';
     title: string;
     label_field: string;
     value_field: string;
     labels: string[];
-    values: number[];
+    values: Array<number | string | Record<string, any>>;
+    value_prefix?: string;
+    value_suffix?: string;
   };
 }
 

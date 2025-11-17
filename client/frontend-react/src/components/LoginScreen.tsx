@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User, Lock } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import foxLogo from 'figma:asset/5eb1a03d8a66515a97bce7830fd04ba26410b27e.png';
+import KTLogo from '../assets/kt-logo.png';
 
 interface LoginScreenProps {
   onLogin: (email: string, password: string) => void;
@@ -26,7 +26,7 @@ export function LoginScreen({ onLogin, onSkip }: LoginScreenProps) {
       <div className="w-full max-w-md space-y-8 p-8">
         <div className="text-center space-y-6">
           <div className="flex justify-center">
-            <img src={foxLogo} alt="FOX Logo" className="h-20" />
+            <img src={KTLogo} alt="KT Logo" className="h-20" />
           </div>
 
           <div className="space-y-3">
