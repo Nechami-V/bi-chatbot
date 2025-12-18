@@ -130,7 +130,12 @@ async def voice_query(
     query_request = QueryRequest(question=transcribed_text)
     
     # Step 3: Process the question using existing chatbot service
-    chatbot_service = ChatbotService(db)
+    # Determine client_id from user or use default
+    client_id = getattr(current_user, 'client_id', 'KT')
+    if not client_id:
+        client_id = 'KT'
+    
+    chatbot_service = ChatbotService(db, client_id=client_id)
     response = await chatbot_service.process_question(query_request, user=current_user)
     
     # Step 4: Add the transcribed question to the response

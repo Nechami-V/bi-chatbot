@@ -5,7 +5,7 @@ Represents parsed queries in a structured format before SQL generation
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any
 from enum import Enum
 
 class AggregationType(Enum):
@@ -83,7 +83,7 @@ class SelectQuery(QueryNode):
     aggregates: List[AggregateFunction] = None          # Aggregate functions
     filters: List[FilterCondition] = None               # WHERE conditions
     sorts: List[SortClause] = None                      # ORDER BY clauses
-    limit: Optional[int] = None                         # LIMIT clause
+    top: Optional[int] = None                           # TOP clause
     group_by: List[AttributeRef] = None                 # GROUP BY attributes
     
     def __post_init__(self):

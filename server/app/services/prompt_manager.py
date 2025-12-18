@@ -80,10 +80,3 @@ class PromptManager:
             pass
         return rendered.strip()
 
-    def render_all(self, schema: Dict[str, Any], variables: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
-        """Render answer, sql_export, sql_ratio prompts and return as dict."""
-        out: Dict[str, str] = {}
-        for name in self.SUPPORTED_TYPES:
-            out[name] = self.render(name, schema=schema, variables=variables)
-        return out
-

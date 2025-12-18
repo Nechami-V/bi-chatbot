@@ -26,8 +26,24 @@ logger = logging.getLogger(__name__)
 # Database configuration
 SQLALCHEMY_DATABASE_URL = config.DATABASE_URL
 
+# Connection arguments based on database type
+connect_args = {}
+if "sqlite" in SQLALCHEMY_DATABASE_URL.lower():
+    connect_args = {"check_same_thread": False}
+elif "mssql" in SQLALCHEMY_DATABASE_URL.lower() or "pyodbc" in SQLALCHEMY_DATABASE_URL.lower():
+    # SQL Server connection arguments
+    connect_args = {
+        "timeout": 180,  # Connection timeout in seconds
+    }
+
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL, 
+    connect_args=connect_args,
+    pool_pre_ping=True,  # Test connections before using them
+    pool_recycle=3600,   # Recycle connections after 1 hour
+    execution_options={
+        "timeout": 180  # Query execution timeout in seconds (3 minutes)
+    }
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

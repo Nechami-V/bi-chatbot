@@ -6,7 +6,7 @@ Uses YAML configuration for entity and attribute recognition
 
 import re
 import logging
-from typing import Dict, List, Optional, Tuple, Set
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 from .ast_nodes import (
@@ -237,9 +237,9 @@ class HebrewQueryParser:
             # Regular SELECT
             query.attributes = attributes if attributes else []  # Empty means SELECT *
         
-        # Add default limit
+        # Add default top
         if self._datasource.database_settings.max_results:
-            query.limit = self._datasource.database_settings.max_results
+            query.top = self._datasource.database_settings.max_results
         
         return query
     

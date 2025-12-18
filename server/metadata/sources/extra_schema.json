@@ -1,0 +1,987 @@
+[
+    {
+        "tableName": "clients",
+        "columnName": "siteid",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "clients",
+        "columnName": "id",
+        "dataType": "bigint",
+        "isNullable": "NO",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "clients",
+        "columnName": "lname",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 22
+    },
+    {
+        "tableName": "clients",
+        "columnName": "fname",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 22
+    },
+    {
+        "tableName": "clients",
+        "columnName": "wname",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 22
+    },
+    {
+        "tableName": "clients",
+        "columnName": "tzl",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 7
+    },
+    {
+        "tableName": "clients",
+        "columnName": "tzw",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 7
+    },
+    {
+        "tableName": "clients",
+        "columnName": "street",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 22
+    },
+    {
+        "tableName": "clients",
+        "columnName": "num",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 5
+    },
+    {
+        "tableName": "clients",
+        "columnName": "city",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 22
+    },
+    {
+        "tableName": "clients",
+        "columnName": "grp",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "clients",
+        "columnName": "lock",
+        "dataType": "smallint",
+        "isNullable": "YES",
+        "numericPrecision": 5,
+        "numericScale": 0
+    },
+    {
+        "tableName": "clients",
+        "columnName": "time",
+        "dataType": "datetime",
+        "isNullable": "YES"
+    },
+    {
+        "tableName": "clients",
+        "columnName": "notes",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": -1
+    },
+    {
+        "tableName": "clients",
+        "columnName": "lock_note",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": -1
+    },
+    {
+        "tableName": "clients",
+        "columnName": "email",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 400
+    },
+    {
+        "tableName": "clients",
+        "columnName": "updated_at",
+        "dataType": "datetime",
+        "isNullable": "YES"
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "מזהה",
+        "dataType": "int",
+        "isNullable": "NO",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "date_en",
+        "dataType": "datetime",
+        "isNullable": "NO"
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "Ytd",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "HalfYear",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "Mtd",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "Day1_Desc",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "DayN",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "Yestarday",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "CurrentWeek",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "Hol",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "DAY_H",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "MONTH_H",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "ErevChag",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "CurrentQUATER",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "active_d",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "ActiveDeyInMonth",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "YEAR1",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "WEEK_Loazi",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "Last12Month",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "QUATER",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "Qtd",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "QtdYear",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 255
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "MonthToYear",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "DayToYear",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "month",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "DOLLAR",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "CurrentMonth",
+        "dataType": "char",
+        "isNullable": "YES",
+        "maxLength": 10
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "FirstDateInMonth",
+        "dataType": "varchar",
+        "isNullable": "YES",
+        "maxLength": 50
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "Season",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 50
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "CurrentYear",
+        "dataType": "char",
+        "isNullable": "YES",
+        "maxLength": 1
+    },
+    {
+        "tableName": "Dates",
+        "columnName": "Fact",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "trans",
+        "columnName": "id",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "trans",
+        "columnName": "clientID",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "trans",
+        "columnName": "saleID",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "trans",
+        "columnName": "saleid_time",
+        "dataType": "datetime",
+        "isNullable": "YES"
+    },
+    {
+        "tableName": "trans",
+        "columnName": "skum",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "trans",
+        "columnName": "note",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 300
+    },
+    {
+        "tableName": "trans",
+        "columnName": "TIME",
+        "dataType": "datetime",
+        "isNullable": "YES"
+    },
+    {
+        "tableName": "trans",
+        "columnName": "itemID",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "trans",
+        "columnName": "item_salesID",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "trans",
+        "columnName": "orderID",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "trans",
+        "columnName": "listID",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "trans",
+        "columnName": "amount",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "trans",
+        "columnName": "original_saleID",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "trans",
+        "columnName": "price",
+        "dataType": "numeric",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 1
+    },
+    {
+        "tableName": "trans",
+        "columnName": "order_weight_id",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "trans",
+        "columnName": "user_id",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "trans",
+        "columnName": "batchID",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "trans",
+        "columnName": "trans_type_id",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_items",
+        "columnName": "id",
+        "dataType": "bigint",
+        "isNullable": "NO",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_items",
+        "columnName": "saleid",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_items",
+        "columnName": "itemid",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_items",
+        "columnName": "price",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "W_items",
+        "columnName": "units",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "W_items",
+        "columnName": "units_type",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_items",
+        "columnName": "time",
+        "dataType": "datetime",
+        "isNullable": "YES"
+    },
+    {
+        "tableName": "W_items",
+        "columnName": "name",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 50
+    },
+    {
+        "tableName": "W_items",
+        "columnName": "pgrp",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_items",
+        "columnName": "workers",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 150
+    },
+    {
+        "tableName": "W_items",
+        "columnName": "workers_name",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 384
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "F_Pay",
+        "dataType": "nchar",
+        "isNullable": "YES",
+        "maxLength": 10
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "id",
+        "dataType": "bigint",
+        "isNullable": "NO",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "listID",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "item_salesID",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "amount",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "src_amount",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "time",
+        "dataType": "date",
+        "isNullable": "YES"
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "F_amount_zikuy",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "F_ZikuyBy",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "F_noteZikuy",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 100
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "F_amount_sh",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "price",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "clientid",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "saleid",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "Y",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "M",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "D",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "H",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "OrderDate",
+        "dataType": "date",
+        "isNullable": "NO"
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "src_amount_price",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "amount_price",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "F_amount_zikuy_price",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "F_amount_sh_price",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "ZikuyKlali",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 4
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "TransTypeDesc",
+        "dataType": "nchar",
+        "isNullable": "YES",
+        "maxLength": 25
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "trans_type_id",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "ZikuyCount",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "itemid",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "workers",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 150
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "workers_name",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 384
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "repo",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 75
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "pgrp",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "name_rakaz",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 50
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "madad",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 10
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "Pachat_Tivei",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 4
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "IsFromOrders",
+        "dataType": "bit",
+        "isNullable": "YES"
+    },
+    {
+        "tableName": "W_Orders",
+        "columnName": "IdList",
+        "dataType": "bigint",
+        "isNullable": "NO",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_orders_Zikuy",
+        "columnName": "id",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_orders_Zikuy",
+        "columnName": "F_ZikuyBy",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_orders_Zikuy",
+        "columnName": "F_noteZikuy",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 100
+    },
+    {
+        "tableName": "W_orders_Zikuy",
+        "columnName": "ZikuyKlali",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 4
+    },
+    {
+        "tableName": "W_orders_Zikuy",
+        "columnName": "TransTypeDesc",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 25
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "id",
+        "dataType": "bigint",
+        "isNullable": "NO",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "siteid",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "parentid",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "week",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 250
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "supply_begin",
+        "dataType": "datetime",
+        "isNullable": "YES"
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "begin",
+        "dataType": "datetime",
+        "isNullable": "YES"
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "end",
+        "dataType": "datetime",
+        "isNullable": "YES"
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "name",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 22
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "grp",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 50
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "city",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 64
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "date_en",
+        "dataType": "datetime",
+        "isNullable": "NO"
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "ID_Week",
+        "dataType": "bigint",
+        "isNullable": "YES",
+        "numericPrecision": 19,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "Precent",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "name_rakaz",
+        "dataType": "nvarchar",
+        "isNullable": "YES",
+        "maxLength": 22
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "ID_rakaz",
+        "dataType": "int",
+        "isNullable": "YES",
+        "numericPrecision": 10,
+        "numericScale": 0
+    },
+    {
+        "tableName": "W_sales",
+        "columnName": "PrecentSales",
+        "dataType": "float",
+        "isNullable": "YES",
+        "numericPrecision": 53
+    }
+]

@@ -19,7 +19,6 @@ from app.models.user import User
 from app.schemas.chat import QueryRequest, QueryResponse
 from app.simple_config import config
 from app.simple_memory import session_memory
-from app.query_ast import HebrewQueryParser, create_sql_generator
 
 logger = logging.getLogger(__name__)
 
@@ -27,25 +26,23 @@ logger = logging.getLogger(__name__)
 class ChatbotService:
     """Main chatbot logic with performance tracking."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, client_id: str = "KT"):
         self.db = db
-        self.ai_service = AIService(db, system_prompt=config.SYSTEM_PROMPT)
+        self.client_id = client_id
+        self.ai_service = AIService(db, system_prompt=config.SYSTEM_PROMPT, client_id=client_id)
         
-        # Add Hebrew Query AST system for better SQL generation
-        self.query_parser = HebrewQueryParser("sample-client")
-        self.sql_generator = create_sql_generator("sample-client")
 
     async def process_question(self, request: QueryRequest, user: Optional[User] = None) -> QueryResponse:
         """
         Process user question with smart follow-up context injection.
-        
+
         Server-side only follow-up handling:
         1. Detects if question is a follow-up using heuristics
         2. Injects minimal context if follow-up detected
         3. Updates context after successful response
         """
         question = request.question.strip()
-        user_id = getattr(user, 'id', None) or 0
+        user_id = str(getattr(user, 'id', None) or 0)
         
         t0 = time.perf_counter()
         timings = {}
@@ -76,7 +73,7 @@ class ChatbotService:
                         ai_answer = await self._generate_response(question, query_results, context_text=context_text)
                         timings['answer_gen'] = (time.perf_counter() - t3) * 1000
                     # Save context and return in legacy QueryResponse shape
-                    session_memory.add_exchange(user_id, question, ai_answer)
+                    session_memory.add_exchange(user_id, question, ai_answer, sql_query)
                     total_ms = (time.perf_counter() - t0) * 1000
                     timings['total'] = total_ms
                     return QueryResponse(
@@ -126,7 +123,7 @@ class ChatbotService:
                 timings['answer_gen'] = (time.perf_counter() - t3) * 1000
 
             # Update session memory for natural OpenAI context
-            session_memory.add_exchange(user_id, question, ai_answer)
+            session_memory.add_exchange(user_id, question, ai_answer, sql_query)
             logger.debug(f"Updated session memory for user {user_id}")
 
             total_ms = (time.perf_counter() - t0) * 1000
@@ -156,47 +153,24 @@ class ChatbotService:
             return self._error_response(question, str(e), "Unexpected")
 
     async def _generate_sql(self, question: str, context_text: str = "") -> Dict[str, Any]:
-        """Generate SQL using OpenAI as primary method (user preference)"""
-        
-        # Use OpenAI as primary method per user request
+        """Generate SQL strictly via OpenAI API (no server-side AST fallback)."""
+
         try:
-            logger.info(f"Using OpenAI for SQL generation (user preference): {question}")
+            logger.info(f"Generating SQL via OpenAI only: {question}")
             result = self.ai_service.generate_sql(question, context_text=context_text)
             if result.get('success'):
                 result['method'] = 'openai'
-                return result
             else:
-                logger.warning("OpenAI SQL generation failed, trying AST as fallback")
-                
+                logger.error(f"OpenAI failed to generate SQL: {result.get('error')}")
+            return result
+
         except Exception as openai_error:
-            logger.warning(f"OpenAI failed: {openai_error}, trying AST as fallback")
-        
-        # Only fallback to AST if OpenAI completely fails
-        try:
-            logger.info("Using AST as fallback after OpenAI failure")
-            parsed_query = self.query_parser.parse(question)
-            
-            if parsed_query.confidence >= 0.4:  # Lower threshold for fallback
-                sql_query = self.sql_generator.generate_sql(parsed_query)
-                logger.info(f"AST fallback generated SQL (confidence: {parsed_query.confidence:.2f}): {sql_query}")
-                
-                return {
-                    'success': True,
-                    'sql': sql_query,
-                    'method': 'ast_fallback',
-                    'confidence': parsed_query.confidence,
-                    'intent': parsed_query.intent
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': f"OpenAI failed and AST confidence too low ({parsed_query.confidence:.2f})",
-                    'method': 'both_failed'
-                }
-                
-        except Exception as ast_error:
-            logger.error(f"Both OpenAI and AST failed: AST={ast_error}")
-            return {'success': False, 'error': f"Both methods failed: {ast_error}"}
+            logger.exception("OpenAI SQL generation raised an exception")
+            return {
+                'success': False,
+                'error': f"OpenAI SQL generation failed: {openai_error}",
+                'method': 'openai_error'
+            }
 
     async def _execute_query(self, sql: str) -> Dict[str, Any]:
         try:

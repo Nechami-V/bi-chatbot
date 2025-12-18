@@ -1,0 +1,159 @@
+# Client-specific datasource configuration for KT
+# Maps logical entities to physical database tables
+
+client_id: "KT"
+database_type: "sqlserver"
+connection_string: "mssql+pyodbc://@SPBYTES/KT?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
+
+# Map logical entities to physical tables
+table_mappings:
+  # לקוחות
+  client:
+    physical_table: "clients"
+    columns:
+      id: "id"
+      siteid: "siteid"
+      first_name: "fname"
+      last_name: "lname"
+      spouse_name: "wname"
+      tz_husband: "tzl"
+      tz_wife: "tzw"
+      street: "street"
+      house_number: "num"
+      city: "city"
+      group: "grp"
+      lock: "lock"
+      notes: "notes"
+      lock_note: "lock_note"
+      email: "email"
+      time: "time"
+      updated_at: "updated_at"
+      
+  # פריטים
+  item:
+    physical_table: "items"
+    columns:
+      id: "id"
+      name: "name"
+      parent_group: "pgrp"
+      class_id: "classID"
+      web_class_id: "webclassID"
+      detailed_class_id: "detailedclassID"
+      time: "time"
+      
+  # קטגוריות
+  class:
+    physical_table: "classes"
+    columns:
+      id: "id"
+      name: "name"
+      code: "code"
+      order: "ord"
+      disable: "disable"
+      lock: "lock"
+      class_order: "class_ord"
+      time: "time"
+      
+  # מכירות פריטים
+  item_sale:
+    physical_table: "items_sales"
+    columns:
+      id: "id"
+      sale_id: "saleid"
+      item_id: "itemid"
+      price: "price"
+      units: "units"
+      units_type: "units_type"
+      time: "time"
+      
+  # הזמנות
+  order:
+    physical_table: "Orders"
+    columns:
+      id: "id"
+      list_id: "listID"
+      item_sales_id: "item_salesID"
+      amount: "amount"
+      src_amount: "src_amount"
+      time: "time"
+      zikuy_by: "F_ZikuyBy"
+      note_zikuy: "F_noteZikuy"
+      amount_sh: "F_amount_sh"
+      price: "price"
+      amount_zikuy: "F_amount_zikuy"
+      src_amount_price: "src_amount_price"
+      amount_price: "amount_price"
+      zikuy_price: "F_amount_zikuy_price"
+      sh_price: "F_amount_sh_price"
+      zikuy_klali: "ZikuyKlali"
+      trans_type_id: "trans_type_id"
+      zikuy_count: "ZikuyCount"
+      workers: "workers"
+      workers_name: "workers_name"
+      repo: "repo"
+      is_from_orders: "IsFromOrders"
+      parent_id: "Parent_Id"
+      
+  # רשימות הזמנות
+  list:
+    physical_table: "lists"
+    columns:
+      id: "id"
+      client_id: "clientid"
+      sale_id: "saleid"
+      time: "time"
+      payment: "F_Pay"
+      
+  # אתרים
+  site:
+    physical_table: "sites"
+    columns:
+      id: "id"
+      name: "name"
+      grp: "grp"
+      disable: "disable"
+      lock: "lock"
+      time: "time"
+      
+  # תאריכים
+  date:
+    physical_table: "Dates"
+    columns:
+      id: "מזהה"
+      date_en: "date_en"
+      ytd: "Ytd"
+      half_year: "HalfYear"
+      mtd: "Mtd"
+      day_desc: "Day1_Desc"
+      day_n: "DayN"
+      yesterday: "Yestarday"
+      current_week: "CurrentWeek"
+      holiday: "Hol"
+      day_hebrew: "DAY_H"
+      month_hebrew: "MONTH_H"
+      erev_chag: "ErevChag"
+      current_quarter: "CurrentQUATER"
+      active_day: "active_d"
+      active_day_in_month: "ActiveDeyInMonth"
+      year: "YEAR1"
+      week_gregorian: "WEEK_Loazi"
+      last_12_month: "Last12Month"
+      quarter: "QUATER"
+      qtd: "Qtd"
+      qtd_year: "QtdYear"
+      month_to_year: "MonthToYear"
+      day_to_year: "DayToYear"
+      month: "month"
+      dollar: "DOLLAR"
+      current_month: "CurrentMonth"
+      first_date_in_month: "FirstDateInMonth"
+      season: "Season"
+      current_year: "CurrentYear"
+      fact: "Fact"
+
+# Database-specific settings
+database_settings:
+  max_results: 5000
+  timeout_seconds: 180
+  enable_explain: true
+  schema: "dbo"

@@ -20,18 +20,204 @@ import json
 import logging
 import re
 import time
-from typing import Dict, Optional, Any, List
+from typing import Dict, Optional, Any, List, Set, Tuple
 
 from openai import OpenAI
 from sqlalchemy.orm import Session
 from sqlalchemy import inspect, text
 
 from app.simple_config import config
+from app.config_loader import ConfigurationError, config_loader
 from app.services.prompt_manager import PromptManager, PromptNotConfigured
-from app.config_loader import config_loader
+from app.services.sql_validator import SQLValidationError, validate_sql
 
 # Configure logger
 logger = logging.getLogger(__name__)
+
+# Common SQL Server reserved keywords that require bracket quoting when used as identifiers
+SQLSERVER_RESERVED_KEYWORDS: Set[str] = {
+    "ADD",
+    "ALL",
+    "ALTER",
+    "AND",
+    "ANY",
+    "AS",
+    "ASC",
+    "AUTHORIZATION",
+    "BACKUP",
+    "BEGIN",
+    "BETWEEN",
+    "BREAK",
+    "BROWSE",
+    "BULK",
+    "BY",
+    "CASCADE",
+    "CASE",
+    "CHECK",
+    "CHECKPOINT",
+    "CLOSE",
+    "CLUSTERED",
+    "COALESCE",
+    "COLUMN",
+    "COMMIT",
+    "COMPUTE",
+    "CONSTRAINT",
+    "CONTAINS",
+    "CONTINUE",
+    "CONVERT",
+    "CREATE",
+    "CROSS",
+    "CURRENT",
+    "CURRENT_DATE",
+    "CURRENT_TIME",
+    "CURRENT_TIMESTAMP",
+    "CURRENT_USER",
+    "CURSOR",
+    "DATABASE",
+    "DBCC",
+    "DEALLOCATE",
+    "DECLARE",
+    "DEFAULT",
+    "DELETE",
+    "DENY",
+    "DESC",
+    "DISK",
+    "DISTINCT",
+    "DISTRIBUTED",
+    "DOUBLE",
+    "DROP",
+    "ELSE",
+    "END",
+    "ERRLVL",
+    "ESCAPE",
+    "EXCEPT",
+    "EXEC",
+    "EXECUTE",
+    "EXISTS",
+    "EXIT",
+    "EXTERNAL",
+    "FETCH",
+    "FILE",
+    "FILLFACTOR",
+    "FOR",
+    "FOREIGN",
+    "FREETEXT",
+    "FROM",
+    "FULL",
+    "FUNCTION",
+    "GOTO",
+    "GRANT",
+    "GROUP",
+    "HAVING",
+    "HOLDLOCK",
+    "IDENTITY",
+    "IDENTITY_INSERT",
+    "IDENTITYCOL",
+    "IF",
+    "IN",
+    "INDEX",
+    "INNER",
+    "INSERT",
+    "INTERSECT",
+    "INTO",
+    "IS",
+    "JOIN",
+    "KEY",
+    "KILL",
+    "LEFT",
+    "LIKE",
+    "LINENO",
+    "LOAD",
+    "MERGE",
+    "NATIONAL",
+    "NOCHECK",
+    "NONCLUSTERED",
+    "NOT",
+    "NULL",
+    "NULLIF",
+    "OF",
+    "OFF",
+    "OFFSETS",
+    "ON",
+    "OPEN",
+    "OPENDATASOURCE",
+    "OPENQUERY",
+    "OPENROWSET",
+    "OPENXML",
+    "OPTION",
+    "OR",
+    "ORDER",
+    "OUTER",
+    "OVER",
+    "PERCENT",
+    "PIVOT",
+    "PLAN",
+    "PRECISION",
+    "PRIMARY",
+    "PRINT",
+    "PROC",
+    "PROCEDURE",
+    "PUBLIC",
+    "RAISERROR",
+    "READ",
+    "READTEXT",
+    "RECONFIGURE",
+    "REFERENCES",
+    "REPLICATION",
+    "RESTORE",
+    "RESTRICT",
+    "RETURN",
+    "REVERT",
+    "REVOKE",
+    "RIGHT",
+    "ROLLBACK",
+    "ROWCOUNT",
+    "ROWGUIDCOL",
+    "RULE",
+    "SAVE",
+    "SCHEMA",
+    "SECURITYAUDIT",
+    "SELECT",
+    "SEMANTICKEYPHRASETABLE",
+    "SEMANTICSIMILARITYDETAILSTABLE",
+    "SEMANTICSIMILARITYTABLE",
+    "SESSION_USER",
+    "SET",
+    "SETUSER",
+    "SHUTDOWN",
+    "SOME",
+    "STATISTICS",
+    "SYSTEM_USER",
+    "TABLE",
+    "TABLESAMPLE",
+    "TEXTSIZE",
+    "THEN",
+    "TO",
+    "TOP",
+    "TRAN",
+    "TRANSACTION",
+    "TRIGGER",
+    "TRUNCATE",
+    "TRY_CONVERT",
+    "TSEQUAL",
+    "UNION",
+    "UNIQUE",
+    "UNPIVOT",
+    "UPDATE",
+    "UPDATETEXT",
+    "USE",
+    "USER",
+    "VALUES",
+    "VARYING",
+    "VIEW",
+    "WAITFOR",
+    "WHEN",
+    "WHERE",
+    "WHILE",
+    "WITH",
+    "WITHIN",
+    "WRITETEXT",
+}
 
 
 class AIService:
@@ -43,14 +229,19 @@ class AIService:
     answers based on database analysis.
     """
 
-    def __init__(self, db: Session, system_prompt: Optional[str] = None):
+    def __init__(self, db: Session, system_prompt: Optional[str] = None, client_id: str = "KT"):
         self.db = db
+        self.client_id = client_id
         self.system_prompt = system_prompt or (
             "You are a helpful BI assistant that converts Hebrew business questions into SQL and answers clearly."
         )
         self.schema_info = self._analyze_database_schema()
         # Prompt manager is optional for legacy flows; initialize lazily when PACK is set
         self._prompt_mgr: Optional[PromptManager] = None
+        
+        # Import and create SQL generator for translation
+        from app.query_ast.sql_generator import create_sql_generator
+        self.sql_generator = create_sql_generator(client_id)
 
         if not config.OPENAI_API_KEY:
             raise ValueError("OpenAI API key is not configured. Please set OPENAI_API_KEY.")
@@ -59,71 +250,105 @@ class AIService:
         logger.info("AI Service initialized successfully")
 
     def _analyze_database_schema(self) -> Dict[str, Any]:
-        """Load database schema from YAML configuration instead of introspection"""
-        logger.info("Loading database schema from YAML configuration...")
-        
+        schema = self._load_schema_from_meta_yaml()
+        if schema.get("tables"):
+            logger.info(
+                "Schema source: META_SCHEMA.yaml (%d tables)",
+                len(schema["tables"]),
+            )
+            return schema
+
+        logger.warning("META_SCHEMA.yaml missing or empty; loading legacy YAML configuration")
+        schema = self._load_schema_from_yaml()
+        if schema.get("tables"):
+            logger.info(
+                "Schema source: legacy YAML (%d tables)",
+                len(schema["tables"]),
+            )
+        return schema
+
+    def _load_schema_from_meta_yaml(self) -> Dict[str, Any]:
         try:
-            # Load configuration from YAML
+            schema = config_loader.load_meta_schema()
+            if schema.get("tables"):
+                logger.info(
+                    "Loaded schema from META_SCHEMA.yaml (%d tables)",
+                    len(schema["tables"]),
+                )
+            else:
+                logger.warning("META_SCHEMA.yaml found but contains no tables")
+            return schema
+        except ConfigurationError as exc:
+            logger.warning("META_SCHEMA.yaml not available: %s", exc)
+        except Exception:
+            logger.exception("Failed to load META_SCHEMA.yaml")
+        return {}
+
+    def _load_schema_from_yaml(self) -> Dict[str, Any]:
+        """Load schema from legacy client YAML configuration as final fallback."""
+        logger.info(f"Loading database schema from YAML configuration for client: {self.client_id}...")
+
+        try:
             ontology = config_loader.load_shared_ontology()
-            datasource, mappings = config_loader.load_client_config("sample-client")
-            
+            datasource, _ = config_loader.load_client_config(self.client_id)
+
             schema = {"tables": {}, "relationships": []}
-            
-            # Build schema from YAML configuration
+
             for entity_name, entity in ontology.entities.items():
                 if entity_name not in datasource.table_mappings:
                     continue
-                    
+
                 table_mapping = datasource.table_mappings[entity_name]
                 physical_table = table_mapping.physical_table
-                
-                # Convert YAML entity definition to schema format
+
                 columns = []
                 primary_keys = []
-                
+
                 for attr_name, attribute in entity.attributes.items():
                     if attr_name not in table_mapping.columns:
                         continue
-                        
+
                     physical_col = table_mapping.columns[attr_name]
-                    
-                    columns.append({
-                        "name": physical_col,
-                        "logical_name": attr_name,
-                        "type": attribute.type.value,
-                        "nullable": attribute.nullable,
-                        "hebrew_names": attribute.hebrew_names,
-                        "primary_key": attribute.primary_key
-                    })
-                    
+
+                    columns.append(
+                        {
+                            "name": physical_col,
+                            "logical_name": attr_name,
+                            "type": attribute.type.value,
+                            "nullable": attribute.nullable,
+                            "hebrew_names": attribute.hebrew_names,
+                            "primary_key": attribute.primary_key,
+                        }
+                    )
+
                     if attribute.primary_key:
                         primary_keys.append(physical_col)
-                
+
                 schema["tables"][physical_table] = {
                     "entity_name": entity_name,
                     "display_name": entity.display_name,
                     "hebrew_names": entity.hebrew_names,
                     "columns": columns,
                     "primary_key": primary_keys,
-                    "foreign_keys": [],  # Can be extended later if needed
+                    "foreign_keys": [],
                 }
-            
-            # Add relationships if they exist
+
             if ontology.relationships:
-                for rel_name, relationship in ontology.relationships.items():
-                    schema["relationships"].append({
-                        "from_entity": relationship.from_entity,
-                        "to_entity": relationship.to_entity,
-                        "type": relationship.type.value,
-                        "foreign_key": relationship.foreign_key
-                    })
-            
+                for _, relationship in ontology.relationships.items():
+                    schema["relationships"].append(
+                        {
+                            "from_entity": relationship.from_entity,
+                            "to_entity": relationship.to_entity,
+                            "type": relationship.type.value,
+                            "foreign_key": relationship.foreign_key,
+                        }
+                    )
+
             logger.info(f"Loaded schema for {len(schema['tables'])} tables from YAML")
             return schema
-            
-        except Exception as e:
-            logger.error(f"Failed to load schema from YAML: {e}")
-            # Fallback to original schema analysis if YAML fails
+
+        except Exception as exc:
+            logger.error(f"Failed to load schema from YAML: {exc}")
             return self._fallback_schema_analysis()
     
     def _fallback_schema_analysis(self) -> Dict[str, Any]:
@@ -183,9 +408,23 @@ class AIService:
 
             parsed = self._parse_sql_response(response)
             if parsed.get("success") and (parsed.get("sql") or "").strip():
+                sql = parsed.get("sql", "")
+                
+                # Final safety check for LIMIT before returning
+                if "LIMIT" in sql.upper():
+                    logger.warning("⚠️ FINAL CHECK: Found LIMIT in generated SQL - converting to TOP")
+                    sql = self._convert_limit_to_top(sql)
+                    parsed["sql"] = sql
+
+                # Apply additional SQL hygiene fixes
+                sql = self._apply_sql_fixes(sql)
+                sql = self._ensure_select_statement(sql)
+                parsed["sql"] = sql
+                
                 total = time.perf_counter() - start_time
                 parsed["duration_sec"] = total
                 logger.info(f"✅ Full SQL generation succeeded in {total:.2f} seconds")
+                logger.info(f"Final SQL: {sql}")
                 return parsed
 
             error = parsed.get("error") or "Empty SQL after parse"
@@ -255,7 +494,7 @@ class AIService:
     def _call_openai_chat(self, prompt: str) -> str:
         completion = self.client.chat.completions.create(
             model=config.OPENAI_MODEL,
-            messages=[{"role": "system", "content": self.system_prompt}, {"role": "user", "content": prompt}],
+            messages=[{"role": "developer", "content": self.system_prompt}, {"role": "user", "content": prompt}],
             temperature=config.TEMPERATURE,
         )
         return completion.choices[0].message.content or ""
@@ -283,42 +522,118 @@ class AIService:
         Returns:
             Formatted prompt string
         """
-        db = "SQLite"
+        # Detect database type from config
+        from app.config_loader import config_loader
+        try:
+            datasource, _ = config_loader.load_client_config(self.client_id)
+            db_type = datasource.database_type.value
+            if db_type == "sqlserver" or db_type == "mssql":
+                db = "SQL Server"
+            else:
+                # Force SQL Server - this system only supports T-SQL
+                logger.warning(f"Unsupported database type: {db_type}. Forcing SQL Server.")
+                db = "SQL Server"
+        except:
+            db = "SQL Server"  # Default to SQL Server
+            
         tables_summary = self._select_relevant_tables(question)
         schema_brief = json.dumps({"tables": tables_summary}, ensure_ascii=False)
         
         # Extract table names for reference
         table_names = list(self.schema_info.get("tables", {}).keys())
+
+        reserved_columns = self._get_reserved_columns()
+        if reserved_columns:
+            reserved_instruction = (
+                "10. Wrap column names that are SQL Server reserved keywords in square brackets.\n"
+                f"   Columns requiring brackets: {', '.join(f'[{col}]' for col in reserved_columns)}\n"
+                "   Example: SELECT sl.[begin] FROM ...\n"
+            )
+        else:
+            reserved_instruction = ""
+        
+        # ONLY SQL Server T-SQL syntax - NO SQLite/MySQL/PostgreSQL
+        date_examples = (
+            "3. For week: DATEPART(week, time)\n"
+            "4. For year: YEAR(time)\n"
+            "5. Current date: GETDATE()\n"
+            "6. Previous year: YEAR(DATEADD(year, -1, GETDATE()))\n"
+            "7. Date range: WHERE time >= DATEADD(day, -7, GETDATE())\n\n"
+        )
+        example_queries = (
+            "EXAMPLES SQL Server T-SQL:\n"
+            "SELECT COUNT(*) FROM Orders WHERE YEAR(time) = YEAR(GETDATE())\n"
+            "SELECT DATEPART(week, time) as week_num, COUNT(*) FROM Orders GROUP BY DATEPART(week, time)\n"
+            "SELECT COUNT(*) FROM Orders WHERE YEAR(time) = YEAR(DATEADD(year, -1, GETDATE()))\n\n"
+        )
+        forbidden_functions = (
+            "FORBIDDEN - NEVER USE:\n"
+            "- SQLite: strftime(), date('now')\n"
+            "- PostgreSQL: DATE_TRUNC(), INTERVAL, CURRENT_DATE\n"
+            "- MySQL: CURDATE(), NOW(), DATE_SUB(), DATE_ADD()\n\n"
+        )
+        allowed_functions = (
+            "USE ONLY SQL SERVER T-SQL:\n"
+            "- GETDATE(), YEAR(), MONTH(), DAY(), DATEPART()\n"
+            "- DATEADD(day/week/month/year, number, date)\n"
+            "- CAST(GETDATE() AS DATE)\n"
+            "- DATEDIFF(day, start_date, end_date)\n\n"
+        )
         
         base_prompt = (
-            f"Create a SQL SELECT query for {db} database from this Hebrew business question.\n\n"
-            "🔴 CRITICAL: Use ONLY these EXACT table and column names:\n"
-            f"Available tables: {', '.join(table_names)}\n\n"
+            f"Create a SQL SELECT query for SQL Server (T-SQL) from this Hebrew business question.\n\n"
+            "🔴 CRITICAL SQL SERVER SYNTAX REQUIREMENTS:\n"
+            "1. Use TOP N at the start of SELECT - NEVER use LIMIT\n"
+            "   - CORRECT: SELECT TOP 10 * FROM ...\n"
+            "   - WRONG: SELECT * FROM ... LIMIT 10\n"
+            "2. Use ONLY these EXACT table and column names:\n"
+            f"   Available tables: {', '.join(table_names)}\n\n"
             "📋 SCHEMA WITH CORRECT NAMES:\n"
             f"{schema_brief}\n\n"
             "✅ INSTRUCTIONS:\n"
             "1. Use ONLY 'physical_name' values from the schema above\n"
             "2. Match Hebrew words to 'hebrew_names' to understand what the user wants\n"
-            "3. For week calculations: strftime('%W', order_date) - DO NOT use non-existent 'week' column\n"
-            "4. For year calculations: strftime('%Y', order_date)\n"
-            "5. Previous year: strftime('%Y', order_date) = strftime('%Y', 'now', '-1 year')\n\n"
-            "🚫 DO NOT USE:\n"
+            f"{date_examples}"
+            "6. When using table aliases, avoid SQL reserved keywords (IS, AS, ON, IN, OR, AND, NOT, etc.)\n"
+            "   - GOOD aliases: itm, itmsl, ord, lst, cli, c, l, o\n"
+            "   - BAD aliases: IS, AS, ON, IN (these are reserved keywords)\n"
+            "7. Performance: Always add WHERE filters BEFORE joins when possible\n"
+            "8. When counting units/quantities, use SUM(units) not COUNT(*)\n"
+            "9. For limiting results: SELECT TOP N ... (place TOP immediately after SELECT)\n\n"
+            "10. If the question is a generic greeting (e.g. שלום, היי, מה שלומך) respond with a SQL statement that returns a friendly greeting text, for example: SELECT 'שלום! איך אפשר לעזור?' AS message.\n"
+            "11. If the user asks about something unrelated to the available data, respond with SQL that returns 'אין לי מידע על זה' (e.g. SELECT 'אין לי מידע על זה' AS message) instead of trying to query non-existent tables.\n\n"
+            "12. When the question mentions תחנה/תחנת/תחנות, use the sites table (column sites.name) to match station names rather than clients.\n\n"
+            f"{reserved_instruction}"
+            "🚫 ABSOLUTELY FORBIDDEN:\n"
+            "- LIMIT clause anywhere in the query\n"
+            "- DATE_SUB, INTERVAL, NOW(), CURDATE(), strftime()\n"
             "- OrdersBot2025 (wrong table name)\n"
-            "- תאריך (wrong column name)\n"
-            "- week (non-existent column)\n\n"
-            "✅ DO USE:\n"
-            f"- {table_names} (correct table names)\n"
-            "- order_date (correct column name for dates)\n"
-            "- strftime functions for date calculations\n\n"
-            "📚 EXAMPLES:\n"
-            "• 'כמה הזמנות השנה?' → SELECT COUNT(*) FROM orders WHERE strftime('%Y', order_date) = strftime('%Y', 'now')\n"
-            "• 'הזמנות בשבוע' → SELECT strftime('%W', order_date) as week_num, COUNT(*) FROM orders GROUP BY week_num\n"
-            "• 'הזמנות שנה שעברה' → SELECT COUNT(*) FROM orders WHERE strftime('%Y', order_date) = strftime('%Y', 'now', '-1 year')\n\n"
+            "- week column (use DATEPART(week, time) instead)\n"
+            "- Reserved keywords as table aliases\n"
+            f"{forbidden_functions}\n"
+            "✅ REQUIRED SQL SERVER SYNTAX:\n"
+            "- SELECT TOP N for limiting results\n"
+            f"- Use tables: {', '.join(table_names)}\n"
+            "- time column for dates in Orders\n"
+            "- YEAR(time), MONTH(time), DATEPART(week, time)\n"
+            "- GETDATE() for current date\n"
+            "- DATEADD(day/week/month/year, number, date)\n"
+            f"{allowed_functions}"
+            f"{example_queries}"
+            "EXAMPLE for top 10 customers:\n"
+            "SELECT TOP 10 c.id, c.fname, c.lname, SUM(o.amount) as total\n"
+            "FROM clients c JOIN lists l ON c.id = l.clientid\n"
+            "JOIN Orders o ON l.id = o.listID\n"
+            "GROUP BY c.id, c.fname, c.lname ORDER BY total DESC\n\n"
         )
         
         # Add conversation context if available
         if context_text.strip():
-            base_prompt += context_text + "\n"
+            base_prompt += (
+                "Conversation context (use to resolve pronouns and follow-up references):\n"
+                f"{context_text}\n"
+                "When the question refers to items from the context, reuse the relevant filters and entities.\n"
+            )
         
         base_prompt += (
             f"QUESTION (Hebrew): {question}\n\n"
@@ -356,7 +671,19 @@ class AIService:
         
         return tables_schema
 
-    def _call_openai_for_sql(self, prompt: str, mode: str = "strict") -> str:
+    def _get_reserved_columns(self) -> List[str]:
+        """Return schema columns that match SQL Server reserved keywords."""
+        reserved: Set[str] = set()
+        for table in self.schema_info.get("tables", {}).values():
+            for column in table.get("columns", []) or []:
+                name = column.get("name") or column.get("physical_name")
+                if not name:
+                    continue
+                if name.upper() in SQLSERVER_RESERVED_KEYWORDS:
+                    reserved.add(name)
+        return sorted(reserved)
+
+    def _call_openai_for_sql(self, prompt: str) -> str:
         sql_tokens = min(256, getattr(config, "MAX_TOKENS", 1000))
         
         # Simple messages - context is now in the prompt itself
@@ -395,22 +722,85 @@ class AIService:
             return text[start:end+1].strip()
         return None
 
+    def _convert_limit_to_top(self, sql: str) -> str:
+        """
+        Convert MySQL/PostgreSQL LIMIT clause to SQL Server TOP clause.
+        
+        Examples:
+        - SELECT * FROM table LIMIT 10 → SELECT TOP 10 * FROM table
+        - SELECT id, name FROM users ORDER BY id LIMIT 5 → SELECT TOP 5 id, name FROM users ORDER BY id
+        """
+        import re
+        
+        # Pattern: LIMIT followed by a number at the end of query
+        pattern = r'\bLIMIT\s+(\d+)\s*;?\s*$'
+        match = re.search(pattern, sql, re.IGNORECASE)
+        
+        if match:
+            limit_num = match.group(1)
+            # Remove the LIMIT clause
+            sql_without_limit = re.sub(pattern, '', sql, flags=re.IGNORECASE).strip()
+            
+            # Add TOP after SELECT
+            sql_with_top = re.sub(
+                r'\bSELECT\b',
+                f'SELECT TOP {limit_num}',
+                sql_without_limit,
+                count=1,
+                flags=re.IGNORECASE
+            )
+            
+            logger.info(f"Converted LIMIT {limit_num} to TOP {limit_num}")
+            return sql_with_top
+        
+        return sql
+
     def _extract_select_sql(self, text: str) -> Optional[str]:
         if not text:
             return None
-        m = re.search(r"(?is)\bselect\b[\s\S]+?\bfrom\b[\s\S]+?(?:;|$)", text)
-        if not m:
-            return None
-        candidate = m.group(0).strip()
-        if len(candidate) < 20:
-            return None
-        return candidate
+        patterns = [
+            r"(?is)\bselect\b[\s\S]+?\bfrom\b[\s\S]+?(?:;|$)",
+            r"(?is)\bselect\b[\s\S]+?(?:;|$)",
+        ]
+        for pattern in patterns:
+            m = re.search(pattern, text)
+            if not m:
+                continue
+            candidate = m.group(0).strip()
+            if len(candidate) < 10:
+                continue
+            return candidate
+        return None
 
     def _parse_sql_response(self, content: str) -> Dict[str, Any]:
         logger.info(f"Parsing AI response: {content}")
         try:
             result = json.loads(content)
             sql_text = (result.get("sql") or "").strip()
+            
+            # ⚡ VALIDATE SQL SYNTAX - Check for forbidden SQLite/MySQL/PostgreSQL patterns
+            if sql_text:
+                # Auto-fix common mistakes before validation
+                if "LIMIT" in sql_text.upper():
+                    logger.warning("⚠️ Found LIMIT clause - auto-converting to TOP")
+                    sql_text = self._convert_limit_to_top(sql_text)
+                    result["sql"] = sql_text
+                
+                try:
+                    validate_sql(sql_text, strict=True)
+                    logger.info("✅ SQL validation passed - using only SQL Server syntax")
+                except SQLValidationError as ve:
+                    logger.error(f"❌ SQL validation failed: {ve.message}")
+                    # Return error with helpful message
+                    return {
+                        "success": False,
+                        "sql": "",
+                        "tables": result.get("tables", []),
+                        "description": result.get("description", ""),
+                        "raw_response": content,
+                        "error": f"Generated SQL contains forbidden syntax:\n{ve.message}",
+                    }
+            
             success = bool(sql_text)
             return {
                 "success": success,
@@ -420,6 +810,7 @@ class AIService:
                 "raw_response": content,
                 "error": None if success else "Empty SQL in JSON response",
             }
+
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse JSON response: {e}. Raw response: {content[:200]}...")
             json_block = self._extract_json_block(content)
@@ -440,6 +831,23 @@ class AIService:
                     logger.warning(f"Extracted JSON block failed: {inner}. JSON block: {json_block[:100]}...")
             select_sql = self._extract_select_sql(content)
             if select_sql:
+                # Auto-fix LIMIT to TOP before returning
+                if "LIMIT" in select_sql.upper():
+                    logger.warning("⚠️ Found LIMIT in extracted SQL - auto-converting to TOP")
+                    select_sql = self._convert_limit_to_top(select_sql)
+                try:
+                    validate_sql(select_sql, strict=True)
+                except SQLValidationError as ve:
+                    logger.error(f"❌ SQL validation failed on extracted SQL: {ve.message}")
+                    return {
+                        "success": False,
+                        "sql": "",
+                        "tables": [],
+                        "description": "",
+                        "raw_response": content,
+                        "error": f"Generated SQL contains forbidden syntax:\n{ve.message}",
+                    }
+
                 return {
                     "success": True,
                     "sql": select_sql,
@@ -458,9 +866,133 @@ class AIService:
                 "error": f"Unable to parse or extract SQL from model response. Content: {content[:200] if content else 'Empty'}",
             }
 
+    def _apply_sql_fixes(self, sql: str) -> str:
+        """Apply deterministic fixes to improve SQL reliability before execution."""
+        if not sql:
+            return sql
+
+        parents_aliases: Set[str] = set()
+        try:
+            # Capture aliases from JOIN parents ...
+            for match in re.finditer(r"JOIN\s+parents(?:\s+AS)?\s+([a-zA-Z_][\w]*)", sql, flags=re.IGNORECASE):
+                alias = match.group(1)
+                if alias:
+                    parents_aliases.add(alias)
+
+            # If the table is referenced without alias
+            if re.search(r"JOIN\s+parents\b", sql, flags=re.IGNORECASE):
+                parents_aliases.add("parents")
+
+            def _wrap_week(match: re.Match[str]) -> str:
+                token = match.group(0)
+                # Avoid double wrapping
+                if "TRY_CONVERT" in token.upper():
+                    return token
+                return f"TRY_CONVERT(int, {token})"
+
+            for alias in parents_aliases:
+                pattern = re.compile(rf"(?<!TRY_CONVERT\(int,\s*)(\b{alias}\s*\.\s*week\b)", re.IGNORECASE)
+                sql = pattern.sub(lambda m: _wrap_week(m), sql)
+
+            def _wrap_dateadd_with_datepart(s: str, pattern: re.Pattern[str], left: bool) -> str:
+                def _extract_dateadd_expr(text: str, start_index: int) -> Tuple[str, int]:
+                    depth = 0
+                    i = start_index
+                    while i < len(text):
+                        ch = text[i]
+                        if ch == '(':
+                            depth += 1
+                        elif ch == ')':
+                            depth -= 1
+                            if depth == 0:
+                                return text[start_index:i + 1], i + 1
+                        i += 1
+                    return "", start_index
+
+                offset = 0
+                result = []
+                while True:
+                    match = pattern.search(s, offset)
+                    if not match:
+                        result.append(s[offset:])
+                        break
+
+                    result.append(s[offset:match.start()])
+                    dateadd_start = match.start('dateadd')
+                    dateadd_expr, end_index = _extract_dateadd_expr(s, dateadd_start)
+                    if not dateadd_expr:
+                        # Fallback: append original text and move on
+                        result.append(s[match.start():match.end()])
+                        offset = match.end()
+                        continue
+
+                    if left:
+                        prefix = match.group('prefix')
+                        replacement = f"{prefix}DATEPART(week, {dateadd_expr})"
+                        offset = end_index
+                    else:
+                        suffix = match.group('suffix')
+                        replacement = f"DATEPART(week, {dateadd_expr}) = {suffix}"
+                        offset = match.end()
+                    result.append(replacement)
+
+                return ''.join(result)
+
+            pattern_left = re.compile(
+                r"(?P<prefix>TRY_CONVERT\(\s*int\s*,\s*[^)]+\)\s*=\s*)" r"(?P<dateadd>DATEADD\(\s*week\b)",
+                re.IGNORECASE,
+            )
+
+            sql = _wrap_dateadd_with_datepart(sql, pattern_left, left=True)
+
+            pattern_right = re.compile(
+                r"(?P<dateadd>DATEADD\(\s*week\b)\s*=\s*(?P<suffix>TRY_CONVERT\(\s*int\s*,\s*[^)]+\))",
+                re.IGNORECASE,
+            )
+
+            sql = _wrap_dateadd_with_datepart(sql, pattern_right, left=False)
+
+            # Final sweep: wrap any remaining .week references to ensure safe int comparison
+            sql = re.sub(
+                r"(?<!TRY_CONVERT\(int,\s*)(\b[a-zA-Z_][\w]*\s*\.\s*week\b)",
+                lambda m: _wrap_week(m),
+                sql,
+                flags=re.IGNORECASE,
+            )
+
+        except Exception:
+            logger.exception("Failed to apply parents.week fix")
+
+        return sql
+
+    def _ensure_select_statement(self, sql: str) -> str:
+        """Ensure the final SQL is an executable SELECT; wrap plain text as a constant result."""
+        if not sql:
+            return sql
+
+        if re.search(r"\bselect\b", sql, flags=re.IGNORECASE):
+            return sql
+
+        message = sql.replace("'", "''").strip()
+        if not message:
+            message = "אין לי מידע על זה"
+        return f"SELECT '{message}' AS message"
+
     def execute_query(self, sql: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         start_time = time.perf_counter()
         try:
+            # Auto-fix LIMIT to TOP as last resort before execution
+            if "LIMIT" in sql.upper():
+                logger.warning("⚠️ CRITICAL: Found LIMIT in SQL before execution - emergency fix to TOP")
+                sql = self._convert_limit_to_top(sql)
+            
+            # Translate SQL functions to database-specific syntax
+            sql = self._ensure_select_statement(sql)
+            translated_sql = self.sql_generator.translate_sql_functions(sql)
+            if translated_sql != sql:
+                logger.info(f"Translated SQL: {sql} -> {translated_sql}")
+                sql = translated_sql
+            
             logger.debug(f"Executing SQL: {sql} | params={params or {}}")
             result = self.db.execute(text(sql), params or {})
             if sql.strip().lower().startswith("select"):
@@ -543,7 +1075,7 @@ class AIService:
                     row = rows[0]
                     if len(row) == 1:
                         val = list(row.values())[0]
-                        return f"התוצאה היא {val}."
+                        return str(val)
                     parts = [f"{k}: {v}" for k, v in row.items()]
                     return "התוצאה: " + ", ".join(parts)
                 return f"התקבלו {rc} תוצאות עבור השאלה."
@@ -585,7 +1117,7 @@ class AIService:
                 row = rows[0]
                 if len(row) == 1:
                     val = list(row.values())[0]
-                    return f"התוצאה היא {val}."
+                    return str(val)
                 # Multi-column single row: join key facts
                 parts = []
                 for k, v in row.items():
@@ -648,7 +1180,7 @@ class AIService:
             "to continue exploring the data — for example, suggesting a forecast, breakdown, or trend analysis. "
             "The follow-up must be relevant to the topic of the question.\n\n"
             f"Question: \"{question}\"\n"
-            f"Query Results (JSON): {json.dumps(compact_context, ensure_ascii=False)}"
+            f"Query Results (JSON): {json.dumps(compact_context, ensure_ascii=False, default=str)}"
             "Return only the Hebrew text (answer + follow-up question)."
         )
 
@@ -678,6 +1210,6 @@ class AIService:
                 if len(preview_rows) == 1 and len(preview_rows[0]) == 1:
                     val = next(iter(preview_rows[0].values()))
                     return f"The result is {val}."
-                return f"Example results: {json.dumps(preview_rows, ensure_ascii=False)}"
+                return f"Example results: {json.dumps(preview_rows, ensure_ascii=False, default=str)}"
             except Exception:
                 return "Unable to generate a natural-language answer from the results."

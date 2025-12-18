@@ -217,7 +217,6 @@ class UserDatabase:
         user = self.get_user_by_email(email)
         # if user and user.check_password(password):
         return user
-        return None
 
     def get_all_users(self) -> List[User]:
         with self.engine.connect() as conn:

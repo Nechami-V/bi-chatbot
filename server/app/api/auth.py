@@ -25,7 +25,7 @@ from app.models.user import User
 from app.simple_config import config as app_config
 
 # Security
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)  # Don't auto-error if no token when DISABLE_AUTH=true
 ALGORITHM = "HS256"
 
 # Load from environment/config
@@ -92,15 +92,40 @@ def create_access_token(user_id: int, email: str) -> str:
     # Signed simple fallback
     return _create_signed_simple_token(payload)
 
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
-    """Verify token and return user"""
+
+def get_mock_user() -> User:
+    """Return a mock user for development/testing when auth is disabled"""
     from app.models.user import User
-    dummy = User()
-    dummy.id = 1
-    dummy.full_name = "Dev User"
-    dummy.email = "dev@local"
-    dummy.permission_group = "admin"
-    return dummy
+    mock_user = User()
+    mock_user.id = 999
+    mock_user.full_name = "Development User"
+    mock_user.email = "dev@localhost"
+    mock_user.permission_group = "admin"
+    mock_user.is_manager = True
+    return mock_user
+
+
+def verify_token(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> User:
+    """Verify token and return user. If DISABLE_AUTH=true, returns mock user."""
+    
+    # Add logging to trace execution
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"verify_token called - DISABLE_AUTH={app_config.DISABLE_AUTH}, credentials={credentials is not None}")
+    
+    # Development mode: bypass authentication
+    if app_config.DISABLE_AUTH:
+        logger.info("Returning mock user (auth disabled)")
+        return get_mock_user()
+    
+    # Require credentials if auth is enabled
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     token = credentials.credentials
     
     try:

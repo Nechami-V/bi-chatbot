@@ -39,7 +39,7 @@ def is_follow_up(question: str, prev_question: Optional[str]) -> bool:
     """
     if not prev_question:
         logger.debug("No previous question - not a follow-up")
-    return False
+        return False
 
     # Normalize whitespace
     question = question.strip()
@@ -121,7 +121,7 @@ def summarize_answer(answer_text: str, max_length: int = 100) -> str:
     answer_text = " ".join(answer_text.split())
     
     # Try to extract first sentence
-    sentences = re.split(r'[.!?]\s+', answer_text)
+    sentences = re.split(r'[.!?](?:\s+|$)', answer_text)
     
     if sentences:
         first_sentence = sentences[0].strip()

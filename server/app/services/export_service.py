@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.services.ai_service import AIService
+from app.services.sql_validator import validate_sql, SQLValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -30,9 +31,10 @@ class ExportService:
     Service for exporting data to Excel/CSV based on natural language queries
     """
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, client_id: str = "KT"):
         self.db = db
-        self.ai_service = AIService(db)
+        self.client_id = client_id
+        self.ai_service = AIService(db, client_id=client_id)
 
     def _get_schema_brief(self) -> str:
         """Build a brief schema description from AI service schema_info"""
@@ -57,9 +59,155 @@ class ExportService:
             return "No ontology available"
 
     def _get_dialect(self) -> str:
-        """Get database dialect"""
-        from app.simple_config import config
-        return getattr(config, 'DB_DIALECT', 'SQLite')
+        """Get database dialect from datasource config"""
+        from app.config_loader import config_loader
+        try:
+            datasource, _ = config_loader.load_client_config(self.client_id)
+            # Handle both enum and string
+            if hasattr(datasource.database_type, 'value'):
+                db_type = datasource.database_type.value.lower()
+            else:
+                db_type = str(datasource.database_type).lower()
+            
+            # Map to standard dialect names used in prompts
+            dialect_map = {
+                'sqlite': 'SQLite',
+                'sqlserver': 'SQLServer',
+                'mssql': 'SQLServer',
+                'postgresql': 'Postgres',
+                'postgres': 'Postgres',
+                'mysql': 'MySQL'
+            }
+            
+            dialect = dialect_map.get(db_type, 'SQLServer')
+            logger.info(f"Detected database dialect: {db_type} -> {dialect}")
+            return dialect
+        except Exception as e:
+            logger.warning(f"Could not determine dialect from datasource: {e}")
+            return 'SQLite'
+
+    def _convert_limit_to_top(self, sql: str) -> str:
+        """
+        Convert MySQL/PostgreSQL LIMIT clause to SQL Server TOP clause.
+        
+        Examples:
+        - SELECT * FROM table LIMIT 10 → SELECT TOP 10 * FROM table
+        - SELECT id, name FROM users ORDER BY id LIMIT 5 → SELECT TOP 5 id, name FROM users ORDER BY id
+        """
+        import re
+        
+        # Pattern: LIMIT followed by a number at the end of query
+        pattern = r'\bLIMIT\s+(\d+)\s*;?\s*$'
+        match = re.search(pattern, sql, re.IGNORECASE)
+        
+        if match:
+            limit_num = match.group(1)
+            # Remove the LIMIT clause
+            sql_without_limit = re.sub(pattern, '', sql, flags=re.IGNORECASE).strip()
+            
+            # Add TOP after SELECT
+            sql_with_top = re.sub(
+                r'\bSELECT\b',
+                f'SELECT TOP {limit_num}',
+                sql_without_limit,
+                count=1,
+                flags=re.IGNORECASE
+            )
+            
+            logger.info(f"Converted LIMIT {limit_num} to TOP {limit_num}")
+            return sql_with_top
+        
+        return sql
+
+    def _translate_to_sql_server(self, sql: str) -> str:
+        """
+        Translate SQLite syntax to SQL Server T-SQL
+        
+        Args:
+            sql: SQL query that might contain SQLite syntax
+            
+        Returns:
+            SQL query with T-SQL syntax
+        """
+        import re
+        
+        logger.info(f"Translating SQL (before): {sql[:200]}...")
+        
+        # Pattern 1: strftime('%Y-%m', column) → FORMAT(column, 'yyyy-MM')
+        # This catches both SELECT and ORDER BY cases
+        sql = re.sub(
+            r"strftime\(['\"]%Y-%m['\"]\s*,\s*([a-zA-Z_][a-zA-Z0-9_.]+)\)",
+            r"FORMAT(\1, 'yyyy-MM')",
+            sql,
+            flags=re.IGNORECASE
+        )
+        
+        # Pattern 2: strftime('%Y-%m-%d', column) → CAST(column AS DATE)
+        sql = re.sub(
+            r"strftime\(['\"]%Y-%m-%d['\"]\s*,\s*([a-zA-Z_][a-zA-Z0-9_.]+)\)",
+            r"CAST(\1 AS DATE)",
+            sql,
+            flags=re.IGNORECASE
+        )
+        
+        # Pattern 3: strftime('%Y', column) → YEAR(column)
+        sql = re.sub(
+            r"strftime\(['\"]%Y['\"]\s*,\s*([a-zA-Z_][a-zA-Z0-9_.]+)\)",
+            r"YEAR(\1)",
+            sql,
+            flags=re.IGNORECASE
+        )
+        
+        # Pattern 4: strftime('%m', column) → MONTH(column)
+        sql = re.sub(
+            r"strftime\(['\"]%m['\"]\s*,\s*([a-zA-Z_][a-zA-Z0-9_.]+)\)",
+            r"MONTH(\1)",
+            sql,
+            flags=re.IGNORECASE
+        )
+        
+        # Pattern 5: strftime('%W', column) → DATEPART(week, column)
+        sql = re.sub(
+            r"strftime\(['\"]%W['\"]\s*,\s*([a-zA-Z_][a-zA-Z0-9_.]+)\)",
+            r"DATEPART(week, \1)",
+            sql,
+            flags=re.IGNORECASE
+        )
+        
+        # Pattern 6: strftime('%d', column) → DAY(column)
+        sql = re.sub(
+            r"strftime\(['\"]%d['\"]\s*,\s*([a-zA-Z_][a-zA-Z0-9_.]+)\)",
+            r"DAY(\1)",
+            sql,
+            flags=re.IGNORECASE
+        )
+        
+        # Pattern 7: date('now') → GETDATE()
+        sql = re.sub(
+            r"date\(['\"]now['\"]\)",
+            r"GETDATE()",
+            sql,
+            flags=re.IGNORECASE
+        )
+        
+        # Pattern 8: LIMIT N → TOP N (convert properly)
+        limit_match = re.search(r"\s+LIMIT\s+(\d+)\s*;?\s*$", sql, flags=re.IGNORECASE)
+        if limit_match:
+            limit_num = limit_match.group(1)
+            # Remove LIMIT clause
+            sql = re.sub(r"\s+LIMIT\s+\d+\s*;?\s*$", "", sql, flags=re.IGNORECASE)
+            # Add TOP after SELECT
+            sql = re.sub(
+                r"\bSELECT\b",
+                f"SELECT TOP {limit_num}",
+                sql,
+                count=1,
+                flags=re.IGNORECASE
+            )
+            logger.info(f"Converted LIMIT {limit_num} to TOP {limit_num}")
+        
+        logger.info(f"Translated SQL (after): {sql[:200]}...")
+        return sql
 
     def generate_export_sql(
         self,
@@ -137,6 +285,24 @@ class ExportService:
             # Clean up the SQL (remove markdown code blocks if present)
             sql_query = sql_query.replace("```sql", "").replace("```", "").strip()
             
+            # Auto-fix LIMIT to TOP before validation
+            if "LIMIT" in sql_query.upper():
+                logger.warning("⚠️ Found LIMIT clause in export SQL - auto-converting to TOP")
+                sql_query = self._convert_limit_to_top(sql_query)
+            
+            # ⚡ VALIDATE SQL SYNTAX BEFORE TRANSLATION
+            try:
+                validate_sql(sql_query, strict=True)
+                logger.info("✅ Export SQL validation passed - using only SQL Server syntax")
+            except SQLValidationError as ve:
+                error_msg = f"Generated export SQL contains forbidden syntax:\n{ve.message}\n\nGenerated SQL:\n{sql_query}"
+                logger.error(f"❌ Export SQL validation failed: {error_msg}")
+                raise ValueError(error_msg)
+            
+            # Apply SQL Server translation if needed (as safety net)
+            if dialect == "SQLServer":
+                sql_query = self._translate_to_sql_server(sql_query)
+            
             logger.info(f"Generated export SQL: {sql_query}")
             return sql_query
 
@@ -155,6 +321,19 @@ class ExportService:
             List of row dictionaries
         """
         try:
+            # Auto-fix LIMIT to TOP as last resort before execution
+            if "LIMIT" in sql_query.upper():
+                logger.warning("⚠️ CRITICAL: Found LIMIT in export SQL before execution - emergency fix to TOP")
+                sql_query = self._convert_limit_to_top(sql_query)
+            
+            # Apply SQL translation if needed (for SQL Server)
+            dialect = self._get_dialect()
+            if dialect == "SQLServer":
+                original_sql = sql_query
+                sql_query = self._translate_to_sql_server(sql_query)
+                if sql_query != original_sql:
+                    logger.info(f"Translated export SQL: {original_sql[:100]}... -> {sql_query[:100]}...")
+            
             result = self.db.execute(text(sql_query))
             columns = result.keys()
             rows = [dict(zip(columns, row)) for row in result.fetchall()]

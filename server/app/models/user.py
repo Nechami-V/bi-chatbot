@@ -40,6 +40,7 @@ class User(Base):
             "id": self.id,
             "username": self.username,
             "email": self.email,
+            "phone": getattr(self, "phone", None),
             "full_name": self.full_name,
             "is_active": self.is_active,
             "is_superuser": self.is_superuser,

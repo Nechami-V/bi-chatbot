@@ -86,7 +86,7 @@ You now run the backend from inside the `server` directory so Python package imp
 5. **Run the development server**
    ```bash
    cd server
-   uvicorn app.main:app --reload --port 8002
+   uvicorn app.main:app --reload --port 8000
    ```
 
 ## 🖥️ Running the Client
@@ -104,7 +104,7 @@ npm install
 npm run dev
 ```
 
-Adjust the frontend API base URL to point to `http://localhost:8002` if changed.
+Adjust the frontend API base URL to point to `http://localhost:8000` if changed.
 
 ---
 

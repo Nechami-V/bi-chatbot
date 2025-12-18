@@ -4,7 +4,7 @@ Validates the structure and content of all YAML config files
 """
 
 from pydantic import BaseModel, Field, validator
-from typing import Dict, List, Optional, Union, Literal
+from typing import Dict, List, Optional
 from enum import Enum
 
 class AttributeType(str, Enum):

@@ -7,45 +7,44 @@ No files, no complexity, just the last few messages per user.
 Author: BI Chatbot Team  
 Version: KISS (Keep It Simple Stupid)
 """
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from threading import Lock
 import time
 
+MAX_MESSAGES_PER_SESSION: Optional[int] = None  # None = שמירת כל השיחה עד איפוס יזום
+
+
 class SimpleSessionMemory:
-    """Dead simple session memory"""
-    
+    """זיכרון שיחה בסיסי הנשמר בזיכרון בלבד"""
+
     def __init__(self):
         self._sessions: Dict[str, List[Dict[str, Any]]] = {}
         self._lock = Lock()
         self._last_cleanup = time.time()
     
-    def add_exchange(self, user_id: str, question: str, answer: str):
-        """Add Q&A pair to user session"""
+    def add_exchange(self, user_id: str, question: str, answer: str, sql: Optional[str] = None):
+        """Add Q&A pair to user session, optionally storing the SQL that produced the answer."""
         with self._lock:
-            if user_id not in self._sessions:
-                self._sessions[user_id] = []
+            user_key = str(user_id)
+            if user_key not in self._sessions:
+                self._sessions[user_key] = []
             
             # Add both question and answer
-            self._sessions[user_id].extend([
+            self._sessions[user_key].extend([
                 {"role": "user", "content": question},
-                {"role": "assistant", "content": answer}
+                {"role": "assistant", "content": answer, "sql": sql}
             ])
             
-            # Keep only last 4 messages (2 exchanges)
-            if len(self._sessions[user_id]) > 4:
-                self._sessions[user_id] = self._sessions[user_id][-4:]
+            if MAX_MESSAGES_PER_SESSION and len(self._sessions[user_key]) > MAX_MESSAGES_PER_SESSION:
+                self._sessions[user_key] = self._sessions[user_key][-MAX_MESSAGES_PER_SESSION:]
             
             self._maybe_cleanup()
-    
-    def get_context_messages(self, user_id: str) -> List[Dict[str, str]]:
-        """Get recent messages for OpenAI context (legacy method)"""
-        with self._lock:
-            return self._sessions.get(user_id, []).copy()
     
     def get_context_text(self, user_id: str) -> str:
         """Get recent conversation context as simple text for prompt injection"""
         with self._lock:
-            messages = self._sessions.get(user_id, [])
+            user_key = str(user_id)
+            messages = self._sessions.get(user_key, [])
             if not messages:
                 return ""
             
@@ -56,15 +55,13 @@ class SimpleSessionMemory:
                     answer = messages[i + 1]["content"]
                     context_parts.append(f"Previous Q: {question}")
                     context_parts.append(f"Previous A: {answer}")
+                    sql = messages[i + 1].get("sql")
+                    if sql:
+                        context_parts.append(f"SQL used: {sql}")
             
             if context_parts:
                 return "\n\nRecent conversation context:\n" + "\n".join(context_parts) + "\n"
             return ""
-    
-    def clear_user(self, user_id: str):
-        """Clear specific user session"""
-        with self._lock:
-            self._sessions.pop(user_id, None)
     
     def _maybe_cleanup(self):
         """Clean old sessions every 10 minutes"""
@@ -78,6 +75,11 @@ class SimpleSessionMemory:
                     del self._sessions[old_user]
             
             self._last_cleanup = now
+
+    def reset_session(self, user_id: str) -> None:
+        """איפוס יזום של ההיסטוריה למשתמש – למשל בעת פתיחת צ'אט חדש"""
+        with self._lock:
+            self._sessions.pop(str(user_id), None)
 
 # Global instance
 session_memory = SimpleSessionMemory()

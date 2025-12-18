@@ -1,0 +1,81 @@
+tables:
+  clients:
+    display_name: טבלת לקוחות
+    hebrew_names:
+      - לקוחות
+    columns:
+      street:
+        description: רחוב מגורים של הלקוח
+        hebrew_names:
+          - רחוב
+      num:
+        description: מספר בית
+        hebrew_names:
+          - מספר בית
+      wname:
+        description: שם עסק / שם נוסף
+        hebrew_names:
+          - שם עסק
+      notes:
+        description: הערות כלליות על הלקוח
+        hebrew_names:
+          - הערות
+      lock_note:
+        description: סיבת חסימה
+        hebrew_names:
+          - סיבת חסימה
+      email:
+        description: כתובת דוא"ל
+        hebrew_names:
+          - אימייל
+  W_Orders:
+    columns:
+      F_noteZikuy:
+        description: הערה לזיכוי
+        hebrew_names:
+          - הערת זיכוי
+      TransTypeDesc:
+        description: תיאור סוג העסקה
+        hebrew_names:
+          - סוג עסקה
+      repo:
+        description: אשכול / רכז אחראי
+        hebrew_names:
+          - רכז
+      name_rakaz:
+        description: שם הרכז
+        hebrew_names:
+          - רכז
+  W_items:
+    columns:
+      workers_name:
+        description: שמות אנשי צוות
+        hebrew_names:
+          - אנשי צוות
+      workers:
+        description: קוד אנשי צוות
+        hebrew_names:
+          - קוד צוות
+  sites:
+    display_name: טבלת תחנות
+    hebrew_names:
+      - תחנה
+      - תחנת
+      - תחנות
+    columns:
+      name:
+        description: שם התחנה
+        hebrew_names:
+          - שם תחנה
+          - תחנה
+          - תחנת
+  trans:
+    columns:
+      note:
+        description: הערת עסקה
+        hebrew_names:
+          - הערה
+      user_id:
+        description: מזהה משתמש מטפל
+        hebrew_names:
+          - משתמש מטפל

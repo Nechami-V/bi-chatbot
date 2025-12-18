@@ -11,11 +11,51 @@ prompt: |
     - LIMIT_HINT: {LIMIT_OR_EMPTY}                    # optional numeric cap for safety
     - DATE_RANGE_HINT: {DATE_RANGE_OR_EMPTY}         # optional from/to
 
+  CRITICAL: SQL Server Syntax Requirements (DIALECT = {DIALECT})
+  
+  ⛔ ABSOLUTELY FORBIDDEN for SQLServer (WILL CAUSE ERRORS):
+    - strftime() function anywhere in query (SELECT, WHERE, ORDER BY, GROUP BY)
+    - LIMIT clause (use TOP instead)
+    - date('now') (use GETDATE())
+    - Reserved keywords as aliases: IS, AS, ON, IN, OR, AND, NOT
+  
+  ✅ REQUIRED for SQLServer:
+    - TOP N instead of LIMIT N
+    - YEAR(column), MONTH(column), DAY(column), DATEPART(week, column) for date parts
+    - GETDATE() for current date/time
+    - FORMAT(column, 'yyyy-MM') for year-month string formatting (only in SELECT, not in ORDER BY)
+    - For ORDER BY with dates: use YEAR(column), MONTH(column) separately
+    - CAST(column AS DATE) for date conversion
+    - Safe aliases: itm, itmsl, ord, lst, cli, st, yr, mon, dy
+  
+  EXAMPLE CONVERSIONS (SQLite → SQLServer):
+    ❌ BAD:  SELECT strftime('%Y-%m', Orders.time) AS month
+    ✅ GOOD: SELECT FORMAT(Orders.time, 'yyyy-MM') AS month
+    
+    ❌ BAD:  ORDER BY strftime('%Y-%m', Orders.time)
+    ✅ GOOD: ORDER BY YEAR(Orders.time), MONTH(Orders.time)
+    
+    ❌ BAD:  ORDER BY strftime('%Y-%m', Orders.time) ASC
+    ✅ GOOD: ORDER BY YEAR(Orders.time) ASC, MONTH(Orders.time) ASC
+    
+    ❌ BAD:  SELECT ... LIMIT 100
+    ✅ GOOD: SELECT TOP 100 ...
+    
+    ❌ BAD:  WHERE time > date('now', '-7 days')
+    ✅ GOOD: WHERE time >= CAST(DATEADD(day, -7, GETDATE()) AS DATE)
+  
+  IMPORTANT: Never use strftime in ORDER BY clause - always use YEAR(), MONTH(), DAY() functions instead!
+
+  ADDRESS MAPPING REMINDER
+  - when the user says "ברחוב X", map it to the street column (clients.street or sites.grp as per ontology).
+  - when the user says "במספר Y" / "מספר בית Y", map it to the house_number column (clients.num or equivalent).
+  - never treat the phrase "מספר" alone as a street name.
+
   EXPORT RULES
   1) Identify the export entity E (granularity) implied by the question.
-    - If the question asks “how many X…”, export the **rows of X** that are counted (no aggregation).
-    - If the question filters by a product/item (e.g., “who ordered product X”), export the **customers who match**, joined via orders/order_items.
-    - Prefer PERSON/ACCOUNT-like entities (Customer/User) for “who/people” questions; prefer Order for “which orders”; etc.
+    - If the question asks "how many X…", export the **rows of X** that are counted (no aggregation).
+    - If the question filters by a product/item (e.g., "who ordered product X"), export the **customers who match**, joined via orders/order_items.
+    - Prefer PERSON/ACCOUNT-like entities (Customer/User) for "who/people" questions; prefer Order for "which orders"; etc.
     - If GRANULARITY_HINT is provided, obey it over inference.
 
   2) Columns to return:
@@ -31,8 +71,8 @@ prompt: |
   4) Safety:
     - For CSV export, **do not** use GROUP BY unless the granularity itself requires de-duplication. Prefer DISTINCT at the export entity key if needed.
     - Apply DATE_RANGE_HINT if provided.
-    - If LIMIT_HINT is provided, add `LIMIT {LIMIT_HINT}` (or dialect equivalent). Otherwise no limit.
-    - Add a stable ORDER BY (e.g., created_at DESC or name ASC).
+    - If LIMIT_HINT is provided and DIALECT is SQLServer, add `TOP {LIMIT_HINT}` at start of SELECT. For other dialects use LIMIT.
+    - Add a stable ORDER BY using actual column names (e.g., YEAR(Orders.time), MONTH(Orders.time) or clients.fname ASC).
 
   OUTPUT FORMAT
   - Return **one** SQL statement only. No explanations, no comments, no markdown.

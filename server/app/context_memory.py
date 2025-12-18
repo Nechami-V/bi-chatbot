@@ -146,7 +146,3 @@ class ContextMemoryStore:
                 "total_contexts": len(self._storage),
                 "ttl_minutes": self._ttl_minutes
             }
-
-
-# Global context memory instance
-context_store = ContextMemoryStore(ttl_minutes=15)

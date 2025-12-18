@@ -3,7 +3,7 @@ Pydantic models for datasource configuration
 """
 
 from pydantic import BaseModel, Field, validator
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 from enum import Enum
 
 class DatabaseType(str, Enum):

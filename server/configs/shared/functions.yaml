@@ -59,9 +59,9 @@ query_patterns:
 # Date and time functions  
 date_functions:
   current_year:
-    sql_function: "strftime('%Y', 'now')"
+    sql_function: "YEAR(GETDATE())"
     hebrew_names: ["שנה נוכחית", "השנה", "השנה הנוכחית"]
     
   current_month:
-    sql_function: "strftime('%m', 'now')" 
+    sql_function: "MONTH(GETDATE())" 
     hebrew_names: ["חודש נוכחי", "החודש", "החודש הנוכחי"]

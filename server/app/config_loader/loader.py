@@ -28,7 +28,14 @@ class ConfigLoader:
         Args:
             config_root: Root directory for configuration files
         """
-        self.config_root = Path(config_root)
+        # Convert to absolute path relative to this file's location
+        if not Path(config_root).is_absolute():
+            # Get the server directory (2 levels up from this file)
+            server_dir = Path(__file__).parent.parent.parent
+            self.config_root = server_dir / config_root
+        else:
+            self.config_root = Path(config_root)
+            
         self._ontology: Optional[Ontology] = None
         self._functions: Optional[Functions] = None
         self._client_configs: Dict[str, tuple] = {}  # client_id -> (datasource, mappings)
@@ -36,6 +43,8 @@ class ConfigLoader:
         # Validate config directory exists
         if not self.config_root.exists():
             raise ConfigurationError(f"Configuration directory not found: {self.config_root}")
+
+        self._meta_schema_path = self.config_root / "schemas" / "META_SCHEMA.yaml"
             
     @lru_cache(maxsize=1)
     def load_shared_ontology(self) -> Ontology:
@@ -132,41 +141,31 @@ class ConfigLoader:
         
         logger.info(f"Loaded configuration for client: {client_id}")
         return datasource, mappings
-    
-    def get_available_clients(self) -> list[str]:
-        """Get list of available client configurations"""
-        clients_dir = self.config_root / "clients"
-        
-        if not clients_dir.exists():
-            return []
-            
-        return [
-            client_dir.name 
-            for client_dir in clients_dir.iterdir() 
-            if client_dir.is_dir() and (client_dir / "datasource.yaml").exists()
-        ]
-    
-    def reload_configuration(self, client_id: Optional[str] = None):
-        """
-        Reload configuration from files
-        
-        Args:
-            client_id: If specified, reload only this client's config
-        """
-        if client_id:
-            # Clear specific client cache
-            if client_id in self._client_configs:
-                del self._client_configs[client_id]
-            logger.info(f"Cleared cache for client: {client_id}")
-        else:
-            # Clear all caches
-            self._ontology = None
-            self._functions = None
-            self._client_configs.clear()
-            # Clear LRU cache
-            self.load_shared_ontology.cache_clear()
-            self.load_shared_functions.cache_clear()
-            logger.info("Cleared all configuration cache")
+
+    def load_meta_schema(self) -> Dict[str, Any]:
+        """Load metadata-driven schema representation from generated YAML."""
+        path = self._meta_schema_path
+
+        if not path.exists():
+            raise ConfigurationError(f"Meta schema file not found: {path}")
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+        except yaml.YAMLError as e:
+            raise ConfigurationError(f"Invalid YAML in meta schema file: {e}")
+        except Exception as e:
+            raise ConfigurationError(f"Failed to load meta schema file: {e}")
+
+        if not isinstance(data, dict):
+            raise ConfigurationError("Meta schema YAML must contain a mapping at the root")
+
+        logger.info(
+            "Loaded meta schema YAML with %d tables",
+            len((data.get("tables") or {}).keys()),
+        )
+        return data
 
 # Global config loader instance
 config_loader = ConfigLoader()
+

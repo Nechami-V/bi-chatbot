@@ -7,21 +7,23 @@ from typing import Dict, List, Optional
 
 class CustomEntityTerms(BaseModel):
     """Additional Hebrew terms for an entity"""
-    additional_names: List[str] = Field(..., min_items=1, description="Additional Hebrew names")
+    hebrew_names: List[str] = Field(default=[], description="Primary Hebrew names")
+    additional_names: List[str] = Field(default=[], description="Additional Hebrew names")
     
-    @validator('additional_names')
+    @validator('hebrew_names', 'additional_names')
     def validate_names(cls, v):
-        if not all(isinstance(name, str) and name.strip() for name in v):
+        if v and not all(isinstance(name, str) and name.strip() for name in v):
             raise ValueError("All names must be non-empty strings")
         return v
 
 class CustomAttributeTerms(BaseModel):
     """Additional Hebrew terms for an attribute"""
-    additional_names: List[str] = Field(..., min_items=1, description="Additional Hebrew names")
+    hebrew_names: List[str] = Field(default=[], description="Primary Hebrew names")
+    additional_names: List[str] = Field(default=[], description="Additional Hebrew names")
     
-    @validator('additional_names') 
+    @validator('hebrew_names', 'additional_names') 
     def validate_names(cls, v):
-        if not all(isinstance(name, str) and name.strip() for name in v):
+        if v and not all(isinstance(name, str) and name.strip() for name in v):
             raise ValueError("All names must be non-empty strings")
         return v
 

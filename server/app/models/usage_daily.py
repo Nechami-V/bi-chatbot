@@ -3,7 +3,7 @@ UsageDaily Model - Daily token usage tracking
 
 Aggregates daily usage per tenant/user/model for monitoring and billing.
 """
-from datetime import datetime, date
+from datetime import datetime
 from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
