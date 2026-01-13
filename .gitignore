@@ -8,3 +8,4 @@ server/.env
 *.db
 *.db-shm
 *.db-wal
+client/frontend-react/build/
