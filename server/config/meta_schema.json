@@ -1,0 +1,112 @@
+{
+  "MetaTables": [
+    { "TableID": 1, "TableName": "clients", "LogicalName": "Customer", "Description": "טבלת לקוחות" },
+    { "TableID": 2, "TableName": "W_items", "LogicalName": "Product", "Description": "טבלת מוצרים" },
+    { "TableID": 3, "TableName": "W_sales", "LogicalName": "Sale", "Description": "טבלת מכירות" },
+    { "TableID": 4, "TableName": "W_Orders", "LogicalName": "OrderHeader", "Description": "טבלת הזמנות" },
+    { "TableID": 5, "TableName": "W_orders_Zikuy", "LogicalName": "Refund", "Description": "טבלת זיכויים" },
+    { "TableID": 6, "TableName": "trans", "LogicalName": "Transaction", "Description": "טבלת טרנזקציות" },
+    { "TableID": 7, "TableName": "Dates", "LogicalName": "Calendar", "Description": "טבלת תאריכים" },
+    { "TableID": 15, "TableName": "parents", "LogicalName": "", "Description": "טבלת שבועות" },
+    { "TableID": 16, "TableName": "PGRPS", "LogicalName": "Department", "Description": "טבלת מחלקות" },
+    { "TableID": 17, "TableName": "sites", "LogicalName": "Stations", "Description": "טבלת תחנות" }
+  ],
+  "MetaColumns": [
+    { "ColumnID": 1, "TableID": 1, "ColumnName": "id", "DataType": "int", "Description": "מזהה לקוח" },
+    { "ColumnID": 3, "TableID": 1, "ColumnName": "fname", "DataType": "nvarchar", "Description": "שם פרטי", "Aliases": "שם,לקוח" },
+    { "ColumnID": 5, "TableID": 1, "ColumnName": "lname", "DataType": "nvarchar", "Description": "שם משפחה", "Aliases": "משפחה" },
+    { "ColumnID": 7, "TableID": 1, "ColumnName": "city", "DataType": "nvarchar", "Description": "עיר", "Aliases": "ישוב" },
+
+    { "ColumnID": 9, "TableID": 2, "ColumnName": "itemid", "DataType": "nvarchar", "Description": "מק״ט", "Aliases": "ברקוד,מקט" },
+    { "ColumnID": 11, "TableID": 2, "ColumnName": "name", "DataType": "nvarchar", "Description": "שם מוצר", "Aliases": "פריט" },
+    { "ColumnID": 13, "TableID": 2, "ColumnName": "pgrp", "DataType": "nvarchar", "Description": "מזהה קטגוריה" },
+
+    { "ColumnID": 15, "TableID": 3, "ColumnName": "date_en", "DataType": "date", "Description": "תאריך מכירה" },
+
+    { "ColumnID": 17, "TableID": 4, "ColumnName": "clientId", "DataType": "int", "Description": "לקוח" },
+    { "ColumnID": 19, "TableID": 4, "ColumnName": "item_salesID", "DataType": "int", "Description": "פריט" },
+    { "ColumnID": 21, "TableID": 4, "ColumnName": "saleID", "DataType": "int", "Description": "מכירה" },
+
+    { "ColumnID": 24, "TableID": 15, "ColumnName": "id", "DataType": "int", "Description": "מזהה שבוע" },
+    { "ColumnID": 25, "TableID": 15, "ColumnName": "week", "DataType": "nvarchar", "Description": "שם שבוע" },
+
+    { "ColumnID": 26, "TableID": 16, "ColumnName": "id", "DataType": "int", "Description": "מזהה מחלקה" },
+    { "ColumnID": 27, "TableID": 16, "ColumnName": "name", "DataType": "nvarchar", "Description": "שם מחלקה", "Aliases": "מחלקה,קטגוריה,קבוצה" },
+
+    { "ColumnID": 28, "TableID": 4, "ColumnName": "amount", "DataType": "int", "Description": "כמות מוזמנת" },
+    { "ColumnID": 29, "TableID": 4, "ColumnName": "src_amount", "DataType": "int", "Description": "כמות מקורית" },
+    { "ColumnID": 30, "TableID": 4, "ColumnName": "F_amount_zikuy", "DataType": "int", "Description": "כמות זיכוי" },
+    { "ColumnID": 31, "TableID": 4, "ColumnName": "F_amount_sh", "DataType": "int", "Description": "כמות בפועל" },
+    { "ColumnID": 32, "TableID": 4, "ColumnName": "amount_price", "DataType": "float", "Description": "סכום הזמנה" },
+    { "ColumnID": 33, "TableID": 4, "ColumnName": "src_amount_price", "DataType": "float", "Description": "סכום מקורי" },
+    { "ColumnID": 34, "TableID": 4, "ColumnName": "F_amount_zikuy_price", "DataType": "float", "Description": "סכום זיכוי" },
+    { "ColumnID": 35, "TableID": 4, "ColumnName": "F_amount_sh_price", "DataType": "float", "Description": "סכום בפועל" },
+    { "ColumnID": 36, "TableID": 4, "ColumnName": "TransTypeDesc", "DataType": "nchar", "Description": "סיבת זיכוי" },
+    { "ColumnID": 37, "TableID": 4, "ColumnName": "workers_name", "DataType": "nvarchar", "Description": "שם עובד", "Aliases": "עובד,אורז" },
+    { "ColumnID": 38, "TableID": 4, "ColumnName": "name_rakaz", "DataType": "nvarchar", "Description": "שם רכז אזורי" },
+    { "ColumnID": 39, "TableID": 4, "ColumnName": "madad", "DataType": "nvarchar", "Description": "אשמת תחנה" },
+    { "ColumnID": 40, "TableID": 4, "ColumnName": "Pachat_Tivei", "DataType": "nvarchar", "Description": "פחת טבעי" },
+
+    { "ColumnID": 41, "TableID": 1, "ColumnName": "time", "DataType": "datetime", "Description": "תאריך רישום", "Aliases": "תאריך הצטרפות" },
+
+    { "ColumnID": 42, "TableID": 17, "ColumnName": "id", "DataType": "int", "Description": "מזהה תחנה" },
+    { "ColumnID": 43, "TableID": 17, "ColumnName": "name", "DataType": "nvarchar", "Description": "שם תחנה", "Aliases": "תחנה" },
+    { "ColumnID": 44, "TableID": 17, "ColumnName": "grp", "DataType": "nvarchar", "Description": "שם אזור", "Aliases": "אזור,קבוצת תחנה" },
+    { "ColumnID": 45, "TableID": 17, "ColumnName": "city", "DataType": "nvarchar", "Description": "שם עיר", "Aliases": "עיר" },
+
+    { "ColumnID": 46, "TableID": 2, "ColumnName": "id", "DataType": "int", "Description": "מזהה מוצר (PK)" },
+    { "ColumnID": 47, "TableID": 3, "ColumnName": "id", "DataType": "int", "Description": "מזהה מכירה (PK)" },
+    { "ColumnID": 48, "TableID": 4, "ColumnName": "id", "DataType": "int", "Description": "מזהה שורת הזמנה/הזמנה (PK)" },
+
+    { "ColumnID": 49, "TableID": 1, "ColumnName": "siteid", "DataType": "int", "Description": "מזהה תחנה ללקוח" },
+
+    { "ColumnID": 50, "TableID": 6, "ColumnName": "orderID", "DataType": "int", "Description": "מזהה הזמנה" },
+    { "ColumnID": 51, "TableID": 6, "ColumnName": "item_salesID", "DataType": "int", "Description": "מזהה מוצר" },
+    { "ColumnID": 52, "TableID": 6, "ColumnName": "TIME", "DataType": "datetime", "Description": "תאריך/זמן טרנזקציה" },
+
+    { "ColumnID": 53, "TableID": 7, "ColumnName": "date_en", "DataType": "date", "Description": "תאריך" },
+
+    { "ColumnID": 54, "TableID": 4, "ColumnName": "parentId", "DataType": "int", "Description": "מזהה שבוע (FK ל-parents)" },
+    { "ColumnID": 55, "TableID": 4, "ColumnName": "PGRP", "DataType": "int", "Description": "מזהה מחלקה (FK ל-PGRPS)" },
+
+    { "ColumnID": 56, "TableID": 1, "ColumnName": "street", "DataType": "nvarchar", "Description": "רחוב" },
+    { "ColumnID": 57, "TableID": 1, "ColumnName": "num", "DataType": "nvarchar", "Description": "מספר בית" }
+  ],
+  "MetaDefaults": [
+    { "DefaultID": 1, "DefaultName": "DateRange_DaysBack", "DefaultValue": "365", "DataType": "int", "Description": "אם המשתמש לא ציין טווח תאריכים השתמש בשנה אחרונה" },
+    { "DefaultID": 2, "DefaultName": "DefaultStore", "DefaultValue": "ירושלים", "DataType": "nvarchar", "Description": "אם המשתמש לא ציין סניף – השתמש בסניף ירושלים" },
+    { "DefaultID": 3, "DefaultName": "DefaultTopRows", "DefaultValue": "100", "DataType": "int", "Description": "אם המשתמש לא ביקש מגבלה השתמש ב-TOP 100" },
+    { "DefaultID": 4, "DefaultName": "DefaultGranularity", "DefaultValue": "Daily", "DataType": "nvarchar", "Description": "גרנולריות ברירת מחדל היא יומית (Daily)" },
+    { "DefaultID": 5, "DefaultName": "AllowFallbackStore", "DefaultValue": "1", "DataType": "bit", "Description": "אם לא נמצא שם סניף מתאים, אפשר לחזור לברירת המחדל" },
+    { "DefaultID": 6, "DefaultName": "DefaultCustomerType", "DefaultValue": "ALL", "DataType": "nvarchar", "Description": "ברירת מחדל: כל הלקוחות" },
+    { "DefaultID": 7, "DefaultName": "DefaultSortColumn", "DefaultValue": "SaleDate", "DataType": "nvarchar", "Description": "ברירת מחדל: מיין לפי תאריך" },
+    { "DefaultID": 8, "DefaultName": "DefaultSortDirection", "DefaultValue": "DESC", "DataType": "nvarchar", "Description": "ברירת מחדל: מהחדש לישן" },
+    { "DefaultID": 9, "DefaultName": "DefaultDateRange", "DefaultValue": "LAST_365", "DataType": "string", "Description": "שנה אחרונה" },
+    { "DefaultID": 10, "DefaultName": "DefaultCity", "DefaultValue": "ירושלים", "DataType": "string", "Description": "עיר ברירת מחדל" },
+    { "DefaultID": 11, "DefaultName": "DefaultLimit", "DefaultValue": "5000", "DataType": "int", "Description": "מקס 5000 רשומות" }
+  ],
+  "MetaIndexes": [
+    { "IndexID": 1, "TableName": "W_items", "IndexName": "IX_W_items_itemid", "IsClustered": false, "IsUnique": true, "Columns": "itemid", "Description": "אינדקס על מק״ט" },
+    { "IndexID": 2, "TableName": "W_sales", "IndexName": "IX_W_sales_date_en", "IsClustered": false, "IsUnique": false, "Columns": "date_en", "Description": "אינדקס על תאריך מכירה" },
+    { "IndexID": 3, "TableName": "W_Orders", "IndexName": "IX_W_Orders_clientId", "IsClustered": false, "IsUnique": false, "Columns": "clientId", "Description": "אינדקס על לקוח" },
+    { "IndexID": 4, "TableName": "W_Orders", "IndexName": "IX_W_Orders_saleID", "IsClustered": false, "IsUnique": false, "Columns": "saleID", "Description": "אינדקס על מכירה" }
+  ],
+  "MetaRelations": [
+    { "RelationID": 1, "FromTable": "W_Orders", "FromColumn": "clientId", "ToTable": "clients", "ToColumn": "id", "Description": "הזמנה → לקוח" },
+    { "RelationID": 2, "FromTable": "W_Orders", "FromColumn": "item_salesID", "ToTable": "W_items", "ToColumn": "id", "Description": "הזמנה → מוצר" },
+    { "RelationID": 3, "FromTable": "W_Orders", "FromColumn": "saleID", "ToTable": "W_sales", "ToColumn": "id", "Description": "הזמנה → מכירה" },
+    { "RelationID": 4, "FromTable": "W_sales", "FromColumn": "date_en", "ToTable": "Dates", "ToColumn": "date_en", "Description": "מכירה → תאריך" },
+    { "RelationID": 5, "FromTable": "trans", "FromColumn": "orderID", "ToTable": "W_Orders", "ToColumn": "id", "Description": "טרנזקציה → הזמנה" },
+    { "RelationID": 6, "FromTable": "trans", "FromColumn": "item_salesID", "ToTable": "W_items", "ToColumn": "id", "Description": "טרנזקציה → מוצר" },
+    { "RelationID": 7, "FromTable": "trans", "FromColumn": "TIME", "ToTable": "Dates", "ToColumn": "date_en", "Description": "טרנזקציה → תאריך" },
+    { "RelationID": 8, "FromTable": "W_Orders", "FromColumn": "parentId", "ToTable": "parents", "ToColumn": "id", "Description": "הזמנה → שבוע" },
+    { "RelationID": 9, "FromTable": "W_Orders", "FromColumn": "PGRP", "ToTable": "PGRPS", "ToColumn": "id", "Description": "הזמנה → מחלקה" },
+    { "RelationID": 10, "FromTable": "clients", "FromColumn": "siteid", "ToTable": "sites", "ToColumn": "id", "Description": "לקוח → תחנה" }
+  ],
+  "MetaExamples": [
+    { "ExampleID": 1, "UserQuestion": "SELECT SUM(F_amount_sh_price) FROM W_Orders o JOIN W_sales s ON o.saleID=s.id WHERE s.date_en = CAST(GETDATE()-1 AS date)", "SQLExample": "SELECT SUM(price) FROM W_Orders o JOIN W_sales s ON o.saleID=s.id WHERE s.date_en = CAST(GETDATE()-1 AS date)", "Notes": "דוגמה בסיסית" }
+  ],
+  "MetaFeedback": [
+    { "FeedbackID": 1, "UserQuestion": "למה הכנסת מכירות של המטה?", "GPT_SQL": "SELECT SUM(price) FROM W_Orders", "GPTAnswer": "לא הופרד מטה", "FeedbackText": "שגוי – המטה לא נכלל", "CorrectedSQL": "SELECT SUM(price) FROM W_Orders WHERE saleID <> 0", "CorrectedMeaning": "לא לכלול מטה", "Category": "Business Logic", "CreatedAt": "2025-12-02T08: 55: 34.250" }
+  ]
+}

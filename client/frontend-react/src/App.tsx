@@ -12,6 +12,7 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { toast } from 'sonner@2.0.3';
 import { Toaster } from './components/ui/sonner';
 import { askQuestion, APIError, logout as apiLogout, login, exportData } from './services/api';
+import { DISABLE_AUTH } from './config';
 import KTLogo from '../assets/kt-logo.png';
 
 type VisualizationType = 'line' | 'bar' | 'pie' | 'table' | 'metric';
@@ -41,12 +42,14 @@ interface SavedQuery {
 }
 
 function App() {
-  const [showLoginScreen, setShowLoginScreen] = useState(true);
+  const [showLoginScreen, setShowLoginScreen] = useState(!DISABLE_AUTH); // Skip login if auth disabled
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [user, setUser] = useState<{ name: string; email: string } | null>(
+    DISABLE_AUTH ? { name: 'Development User', email: 'dev@localhost' } : null
+  );
   const [recentlySavedId, setRecentlySavedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [hasUnreadQueries, setHasUnreadQueries] = useState(false);

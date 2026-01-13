@@ -1,12 +1,12 @@
 import { API_BASE_URL, API_ENDPOINTS, DEFAULT_HEADERS, API_TIMEOUT } from '../config';
 
 // Types matching the backend API
-export interface LoginRequest {
+interface LoginRequest {
   email: string;
   password: string;
 }
 
-export interface LoginResponse {
+interface LoginResponse {
   access_token: string;
   token_type: string;
   user_info: {
@@ -17,15 +17,20 @@ export interface LoginResponse {
   permissions: Record<string, any>;
 }
 
-export interface AskRequest {
+interface AskRequest {
   question: string;
+  session_id?: string;
 }
 
-export interface AskResponse {
-  question: string;
+interface AskResponse {
   answer: string;
+  question?: string;
   sql?: string;
-  data?: any[];
+  data: any[];
+  columns: string[];
+  row_count?: number;
+  preview_count: number;
+  has_more: boolean;
   error?: string;
   total_time_ms?: number;
   timings_ms?: Record<string, number>;
@@ -41,24 +46,18 @@ export interface AskResponse {
   };
 }
 
-export interface UserInfo {
-  id: number;
-  username: string;
-  email?: string;
-}
-
 // Token storage
 const TOKEN_KEY = 'bi_chatbot_token';
 
-export const setToken = (token: string) => {
+const setToken = (token: string) => {
   localStorage.setItem(TOKEN_KEY, token);
 };
 
-export const getToken = (): string | null => {
+const getToken = (): string | null => {
   return localStorage.getItem(TOKEN_KEY);
 };
 
-export const clearToken = () => {
+const clearToken = () => {
   localStorage.removeItem(TOKEN_KEY);
 };
 
@@ -103,6 +102,7 @@ async function fetchWithTimeout(
     const response = await fetch(url, {
       ...options,
       headers,
+      credentials: 'include',
       signal: controller.signal,
     });
 
@@ -175,19 +175,24 @@ export async function login(email: string, password: string): Promise<LoginRespo
 }
 
 /**
- * Get current user info
- */
-export async function getCurrentUser(): Promise<UserInfo> {
-  const url = `${API_BASE_URL}${API_ENDPOINTS.ME}`;
-  const response = await fetchWithTimeout(url, { method: 'GET' });
-  return handleResponse<UserInfo>(response);
-}
-
-/**
  * Logout (client-side token clearing)
  */
 export async function logout(): Promise<void> {
   clearToken();
+}
+
+/**
+ * Reset the chat session
+ */
+export async function resetChat(): Promise<{ ok: boolean }> {
+  const url = `${API_BASE_URL}/chat/reset`;
+  const response = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  return handleResponse<{ ok: boolean }>(response);
 }
 
 /**
@@ -203,28 +208,12 @@ export async function askQuestion(question: string): Promise<AskResponse> {
     headers: {
       'Content-Type': 'application/json',
     },
+    credentials: 'include',
+
     body: JSON.stringify(requestBody),
   });
 
   return handleResponse<AskResponse>(response);
-}
-
-/**
- * Health check
- */
-export async function healthCheck(): Promise<{ status: string; version: string }> {
-  const url = `${API_BASE_URL}${API_ENDPOINTS.HEALTH}`;
-  const response = await fetchWithTimeout(url, { method: 'GET' });
-  return handleResponse(response);
-}
-
-/**
- * Get database schema info
- */
-export async function getSchema(): Promise<any> {
-  const url = `${API_BASE_URL}${API_ENDPOINTS.SCHEMA}`;
-  const response = await fetchWithTimeout(url, { method: 'GET' });
-  return handleResponse(response);
 }
 
 /**
