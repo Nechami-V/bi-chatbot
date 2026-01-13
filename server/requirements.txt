@@ -1,41 +1,7 @@
-# Core
-fastapi==0.95.0
-uvicorn[standard]==0.21.1
-python-multipart==0.0.6
-python-dotenv==1.0.0
-pydantic[email]==1.10.7
-PyJWT==2.8.0
-
-# Database
-sqlalchemy==2.0.9
-alembic==1.10.3
-aiosqlite==0.18.0
-pyodbc==4.0.39  # For SQL Server connection
-bcrypt==3.2.2  # Compatible with many stacks; used for password verification
-
-# AI & NLP
-openai>=1.0.0
-spacy==3.5.3
-en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.5.0/en_core_web_sm-3.5.0-py3-none-any.whl
-# hebrew-nlp @ git+ssh://git@github.com/<OWNER>/hebrew-nlp.git@<ref>
-# hebrew-tokenizer==1.0.0
-torch==2.0.1
-sentence-transformers==2.2.2
-
-# Data Processing
-numpy==1.26.4
-pandas==2.0.3
-python-dateutil==2.9.0.post0
-rapidfuzz==2.15.2
-
-# Visualization
-matplotlib==3.7.1
-plotly==5.14.1
-
-# Testing
-pytest==7.3.1
-pytest-cov==4.0.0
-
-# Prompts & templating
-PyYAML==6.0.1
-Jinja2==3.1.4
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+sqlalchemy
+pyodbc
+openai

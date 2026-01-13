@@ -1,0 +1,130 @@
+{
+  "entities": {
+    "הזמנות": {
+      "table": "W_Orders"
+    },
+    "לקוחות": {
+      "table": "clients"
+    },
+    "תחנות": {
+      "table": "sites"
+    },
+    "מכירות": {
+      "table": "W_sales"
+    },
+    "מוצרים": {
+      "table": "W_items"
+    }
+  },
+  "metrics": {
+    "כמה": {
+      "kind": "count"
+    },
+    "סכום": {
+      "kind": "sum"
+    },
+    "ממוצע": {
+      "kind": "avg"
+    }
+  },
+  "business_terms": {
+    "משפחות": {
+      "rewrite": "לקוחות שונים",
+      "sql_hint": "COUNT(DISTINCT W_Orders.clientid)"
+    },
+    "לקוחות שהזמינו": {
+      "rewrite": "כמה לקוחות שונים ביצעו הזמנות",
+      "sql_hint": "COUNT(DISTINCT W_Orders.clientid)"
+    },
+    "הזמינו": {
+      "sql_hint": "If the question asks how many customers ordered, use COUNT(DISTINCT W_Orders.clientid)."
+    },
+    "תחנה": {
+      "entity": "sites",
+      "must_join_path": [
+        "W_Orders->clients",
+        "clients->sites"
+      ]
+    },
+    "מוצר": {
+      "entity": "W_items",
+      "must_join_path": [
+        "W_Orders->W_items"
+      ]
+    },
+    "שבוע": {
+      "sql_hint": "W_sales.ID_Week"
+    },
+    "אתמול": {
+      "sql_hint": "W_sales.date_en = CAST(DATEADD(day,-1,GETDATE()) AS date)"
+    },
+    "בשבוע האחרון": {
+      "sql_hint": "Use W_sales.date_en for time filtering and join via W_Orders.saleid = W_sales.id. Filter: W_sales.date_en >= DATEADD(DAY,-7,CAST(GETDATE() AS date))"
+    },
+    "7 הימים האחרונים": {
+      "sql_hint": "Use W_sales.date_en for time filtering and join via W_Orders.saleid = W_sales.id. Filter: W_sales.date_en >= DATEADD(DAY,-7,CAST(GETDATE() AS date))"
+    },
+    
+    "פילוח": {
+      "sql_hint": "Use GROUP BY on the requested field and return counts."
+    },
+    "רחוב": {
+      "entity": "clients",
+      "sql_hint": "Use clients.street. For a breakdown: SELECT clients.street, COUNT(*) ... GROUP BY clients.street"
+    },
+    "רחובות": {
+      "entity": "clients",
+      "sql_hint": "Use clients.street. For a breakdown: SELECT clients.street, COUNT(*) ... GROUP BY clients.street"
+    },
+    "בירושלים": {
+      "sql_hint": "clients.city = N'ירושלים'"
+    }
+  },
+  "sql_hints": [
+    {
+      "term": "כמה לקוחות הזמינו",
+      "hint": "Interpret as COUNT(DISTINCT W_Orders.clientid) and if time range is mentioned use W_sales.date_en with join W_Orders.saleid=W_sales.id."
+    },
+    {
+      "term": "מוצר",
+      "hint": "Aggregate by W_items.id first, then join to get W_items.name for display."
+    },
+    {
+      "term": "מוצרים",
+      "hint": "Aggregate by W_items.id first, then join to get W_items.name for display."
+    },
+    {
+      "term": "לקוח",
+      "hint": "Aggregate by clients.id first, then join to get clients.fname for display."
+    },
+    {
+      "term": "תחנה",
+      "hint": "Aggregate by sites.id first, then join to get sites.name for display."
+    }
+  ],
+  "canonical_joins": [
+    {
+      "from": "W_Orders.saleid",
+      "to": "W_sales.id"
+    },
+    {
+      "from": "W_Orders.clientid",
+      "to": "clients.id"
+    },
+    {
+      "from": "clients.siteid",
+      "to": "sites.id"
+    },
+    {
+      "from": "W_Orders.item_salesID",
+      "to": "W_items.id"
+    }
+  ],
+  "forbidden": [
+    "W_sales.saleID",
+    "W_Orders.item_salesID = W_items.itemid",
+    "sites.name = W_Orders.madad",
+    "sites.id = W_Orders.madad",
+    "W_Orders.itemid = W_items.itemid"
+  ]
+}

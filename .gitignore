@@ -1,37 +1,10 @@
-# Python compilation files
+client/frontend-react/node_modules/
+venv/
 __pycache__/
 *.pyc
-*.pyo
-
-# Virtual environment
-venv/
-.venv/
-data/
-Lib/
-Scripts/
-pyvenv.cfg
-
-# Jupyter files
-.ipynb_checkpoints/
-*.ipynb
-
-# Database files
+*.log
+*.env
+server/.env
 *.db
-*.sqlite
-
-# System files
-.DS_Store
-Thumbs.db
-
-# Additional files not to upload
-.env
-# created by virtualenv automatically
-.idea
-
-# Node/React builds
-node_modules/
-frontend-react/node_modules/
-frontend-react/dist/
-dist/
-
-
+*.db-shm
+*.db-wal

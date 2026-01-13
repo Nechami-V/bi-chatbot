@@ -19,13 +19,18 @@ interface LoginResponse {
 
 interface AskRequest {
   question: string;
+  session_id?: string;
 }
 
 interface AskResponse {
-  question: string;
   answer: string;
+  question?: string;
   sql?: string;
-  data?: any[];
+  data: any[];
+  columns: string[];
+  row_count?: number;
+  preview_count: number;
+  has_more: boolean;
   error?: string;
   total_time_ms?: number;
   timings_ms?: Record<string, number>;
@@ -97,6 +102,7 @@ async function fetchWithTimeout(
     const response = await fetch(url, {
       ...options,
       headers,
+      credentials: 'include',
       signal: controller.signal,
     });
 
@@ -176,6 +182,20 @@ export async function logout(): Promise<void> {
 }
 
 /**
+ * Reset the chat session
+ */
+export async function resetChat(): Promise<{ ok: boolean }> {
+  const url = `${API_BASE_URL}/chat/reset`;
+  const response = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  return handleResponse<{ ok: boolean }>(response);
+}
+
+/**
  * Ask a question to the chatbot
  */
 export async function askQuestion(question: string): Promise<AskResponse> {
@@ -188,6 +208,8 @@ export async function askQuestion(question: string): Promise<AskResponse> {
     headers: {
       'Content-Type': 'application/json',
     },
+    credentials: 'include',
+
     body: JSON.stringify(requestBody),
   });
 
